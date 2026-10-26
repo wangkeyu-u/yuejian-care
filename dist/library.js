@@ -4,7 +4,7 @@
   const $$ = selector => [...document.querySelectorAll(selector)];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const model = window.MoonLibraryModel;
-  const articles = [...(window.MoonHealthArticles || []).map(a => ({ ...a, kind: 'health' })), ...(window.MoonCultureArticles || []).map(a => ({ ...a, kind: 'culture' }))];
+  const articles = [...(window.MoonHealthArticles || []).map(a => ({ ...a, kind: 'health' })), ...(window.MoonTCMArticles || []).map(a => ({ ...a, kind: 'tcm' })), ...(window.MoonCultureArticles || []).map(a => ({ ...a, kind: 'culture' }))];
   const articleById = new Map(articles.map(a => [a.id, a]));
   const STORAGE_KEY = 'yuejian.library.v1';
   const elements = ['木', '火', '土', '金', '水'];
@@ -46,17 +46,22 @@
     if (!$('#article-dialog').open) $('#article-dialog').showModal();
     $('#article-dialog').scrollTop = 0;
   }
+  const kindNames = { health: '经期知识', tcm: '中医常识', culture: '传统文化' };
+  const basisNames = { clinical: '医学资料', traditional: '传统理论', editorial: '编辑建议', mixed: '资料与编辑整理' };
+  function evidenceLabel(article) { return basisNames[article.verification?.basis] || '来源待核对'; }
   function renderArticle() {
     const a = articleById.get(openArticleId); if (!a) return;
     const saved = memory.bookmarks.includes(a.id);
-    const related = articles.filter(row => row.kind !== a.kind && (a.kind === 'health' ? row.tags.some(tag => a.tags.includes(tag)) : row.id === 'health-first-day')).slice(0, 2);
-    const cross = related.length ? related : a.kind === 'health' ? [articleById.get('culture-zodiac-no-taboo')] : [articleById.get('health-first-day')];
-    $('#article-body').innerHTML = `<div class="article-topline"><span class="article-kind ${a.kind}">${a.kind === 'health' ? '经期知识 · ' : '传统文化 · '}${esc(a.category)}</span><button class="article-save" data-bookmark="${a.id}" aria-pressed="${saved}">${saved ? '已收藏 ✓' : '收藏这条 ＋'}</button></div><h2 id="article-title">${esc(a.title)}</h2><p class="article-deck">${esc(a.summary)}</p><div class="article-paragraphs">${a.body.map(p => `<p>${esc(p)}</p>`).join('')}</div><div class="article-tags">${a.tags.map(tag => `<span>${esc(tag)}</span>`).join('')}</div><div class="article-sources"><h3>${a.kind === 'health' ? '资料依据' : '历法、文化或相关健康资料'}</h3>${a.sources.filter(s => /^https:\/\//.test(s.url)).map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title)} ↗</a>`).join('')}${a.kind === 'culture' ? '<p>文化解释中的生活配搭为编辑设计。资料用于支持对应事实，不代表来源机构认可命理对健康的解释。</p>' : ''}</div><div class="article-related"><h3>${a.kind === 'health' ? '也许你还好奇' : '回到身体的实际照护'}</h3>${cross.filter(Boolean).map(row => row.kind === 'culture' && !cultureVisible() ? '<p>文化栏目由你选择开启；日常照护不受影响。</p>' : `<button data-read-article="${row.id}">${esc(row.title)} <span>→</span></button>`).join('')}</div>`;
+    const verification = a.verification;
+    const supports = new Map((verification?.sourceNotes || []).map(note => [note.url, note.supports]));
+    const relatedIds = a.kind === 'tcm' ? ['health-urgent-pain', 'health-medication'] : a.kind === 'culture' ? ['health-first-day'] : ['health-cycle-day-one', 'health-urgent-pain'];
+    const related = relatedIds.filter(id => id !== a.id).map(id => articleById.get(id)).filter(Boolean);
+    $('#article-body').innerHTML = `<div class="article-topline"><span class="article-kind ${a.kind}">${esc(kindNames[a.kind])} · ${esc(a.category)}</span><button class="article-save" data-bookmark="${a.id}" aria-pressed="${saved}">${saved ? '已收藏 ✓' : '收藏这条 ＋'}</button></div><h2 id="article-title">${esc(a.title)}</h2><p class="article-deck">${esc(a.summary)}</p><aside class="article-evidence" aria-label="资料性质与核对信息"><div><strong>${esc(evidenceLabel(a))}</strong><span>${verification ? '来源核对：' + esc(verification.checkedAt) : '尚未完成来源核对'}</span></div><p>${esc(verification?.note || '暂不将本条作为已核实的知识。')}</p></aside><div class="article-paragraphs">${a.body.map((p, paragraphIndex) => `<p>${esc(p)}${(a.paragraphSources?.[paragraphIndex] || []).filter(index => a.sources[index]).map(index => `<a class="paragraph-source" href="${esc(a.sources[index].url)}" target="_blank" rel="noopener noreferrer" aria-label="本段来源 ${index + 1}：${esc(a.sources[index].title)}">[${index + 1}]</a>`).join('')}</p>`).join('')}</div><div class="article-tags">${a.tags.map(tag => `<span>${esc(tag)}</span>`).join('')}</div><div class="article-sources"><h3>原文与引用范围</h3>${a.sources.filter(source => /^https:\/\//.test(source.url)).map((source, i) => `<div class="article-source"><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer"><span>[${i + 1}]</span> ${esc(source.title)} ↗</a><p>${esc(supports.get(source.url) || '本来源尚未注明支持范围。')}</p></div>`).join('')}${a.kind === 'culture' ? '<p>生活仪式和颜色配搭属于编辑设计。引用历法资料不表示来源机构认可命理对健康或吉凶的解释。</p>' : a.kind === 'tcm' ? '<p>中医科普用于了解理论和就医沟通。疗法是否适合个人，需要由合资格专业人员结合具体情况判断。</p>' : ''}</div><div class="article-related"><h3>继续了解身体照护</h3>${related.map(row => `<button data-read-article="${row.id}">${esc(row.title)} <span>→</span></button>`).join('')}</div>`;
     $('#article-dialog').setAttribute('aria-labelledby', 'article-title');
   }
   function card(article) {
     const saved = memory.bookmarks.includes(article.id);
-    return `<article class="knowledge-card ${article.kind}"><div class="knowledge-card-top"><span>${esc(article.category)}</span></div><button class="knowledge-card-read" data-read-article="${article.id}"><h2>${esc(article.title)}</h2><p>${esc(article.summary)}</p><span class="knowledge-card-foot"><span>资料来源可查</span><i>阅读全文 →</i></span></button><button class="bookmark-control" data-bookmark="${article.id}" aria-label="${saved ? '取消收藏' : '收藏'}：${esc(article.title)}" aria-pressed="${saved}" title="${saved ? '取消收藏' : '收藏这条'}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4V4Z"/></svg></button></article>`;
+    return `<article class="knowledge-card ${article.kind}"><div class="knowledge-card-top"><span>${esc(article.category)}</span></div><button class="knowledge-card-read" data-read-article="${article.id}"><h2>${esc(article.title)}</h2><p>${esc(article.summary)}</p><span class="knowledge-card-foot"><span>${esc(evidenceLabel(article))} · 查看原文</span><i>阅读全文 →</i></span></button><button class="bookmark-control" data-bookmark="${article.id}" aria-label="${saved ? '取消收藏' : '收藏'}：${esc(article.title)}" aria-pressed="${saved}" title="${saved ? '取消收藏' : '收藏这条'}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v17l-6-4-6 4V4Z"/></svg></button></article>`;
   }
   function render() {
     if (!api) return;
@@ -65,16 +70,17 @@
     const categories = ['全部', ...new Set(visible.map(a => a.category))];
     if (!categories.includes(category)) category = '全部';
     $$('[data-library-kind]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.libraryKind === kind)));
+    $('#library-stat-tcm').textContent = articles.filter(a => a.kind === 'tcm').length;
     $('#library-stat-health').textContent = articles.filter(a => a.kind === 'health').length;
     $('#library-stat-culture').textContent = articles.filter(a => a.kind === 'culture').length;
     $('#bookmark-count').textContent = memory.bookmarks.length;
     $('#library-guidance').className = 'library-guidance ' + kind;
-    $('#library-guidance').innerHTML = kind === 'culture' ? enabled ? '<span>✧</span><p>这里解释传统历法与五行符号，再给日常一点自选的仪式感。出生时刻未知，未排完整八字。</p><button class="small-link" data-library-disable>关闭文化栏目</button>' : '<span>✧</span><div><strong>东方趣味由你选择开启</strong><p>看干支、生肖与五行常识，不用它判断身体状况或吉凶。</p></div><button class="button outline" data-library-enable>开启并浏览 →</button>' : kind === 'saved' ? `<span>❧</span><p>${storageWarning ? '本机保存可能不可用，请导出数据。' : '把想再读的内容放在这里。关闭文化栏目时，文化收藏会保留并暂时隐藏。'}</p>` : '<span>❧</span><p>每条都有资料来源，按需要选择阅读。</p>';
+    $('#library-guidance').innerHTML = kind === 'culture' ? enabled ? '<span>✧</span><p>这里解释传统历法与五行符号，再给日常一点自选的仪式感。出生时刻未知，未排完整八字。</p><button class="small-link" data-library-disable>关闭文化栏目</button>' : '<span>✧</span><div><strong>东方趣味由你选择开启</strong><p>看干支、生肖与五行常识，不用它判断身体状况或吉凶。</p></div><button class="button outline" data-library-enable>开启并浏览 →</button>' : kind === 'tcm' ? '<span>◎</span><p>了解传统中医的解释，也看疗法的证据与风险。每篇标明资料性质和原文支持范围，不按症状、生日或五行自动开方。</p>' : kind === 'saved' ? `<span>❧</span><p>${storageWarning ? '本机保存可能不可用，请导出数据。' : '把想再读的内容放在这里。关闭文化栏目时，文化收藏会保留并暂时隐藏。'}</p>` : '<span>❧</span><p>每条都可查看来源核对日期、资料性质和原文支持范围。</p>';
     $('#library-categories').innerHTML = categories.map(name => `<button data-library-category="${esc(name)}" aria-pressed="${name === category}">${esc(name)}</button>`).join('');
     $('#library-categories').hidden = kind === 'culture' && !enabled;
     const result = model.filterArticles(articles, { kind, query, category, bookmarks: memory.bookmarks, cultureEnabled: enabled });
     const shown = result.slice(0, visibleCount);
-    $('#library-result-count').textContent = `${result.length} 条${query ? '匹配的' : ''}${kind === 'culture' ? '文化问答' : kind === 'saved' ? '收藏内容' : '照护知识'}${result.length > shown.length ? ` · 已显示 ${shown.length} 条` : ''}`;
+    $('#library-result-count').textContent = `${result.length} 条${query ? '匹配的' : ''}${kind === 'culture' ? '文化问答' : kind === 'tcm' ? '中医知识' : kind === 'saved' ? '收藏内容' : '照护知识'}${result.length > shown.length ? ` · 已显示 ${shown.length} 条` : ''}`;
     $('#library-reset').hidden = !query && category === '全部';
     $('#library-results').innerHTML = kind === 'culture' && !enabled ? '' : result.length ? shown.map(card).join('') : `<div class="library-empty"><span>◌</span><h2>${kind === 'saved' && !query ? '喜欢的内容，随时可以收好。' : '暂时没有找到这类内容。'}</h2><p>${kind === 'saved' && !query ? '点击文章旁的收藏按钮，就能在这里再读一次。' : '试试“痛经”“洗澡”“月相”这样的短词，或清除筛选。'}</p></div>`;
     $('#library-load-more').hidden = shown.length >= result.length;

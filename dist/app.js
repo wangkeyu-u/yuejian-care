@@ -261,7 +261,7 @@
     $('#birthday-summary').textContent = state.birthday ? `${state.birthday} · ${state.birthConfirmed ? '公历已确认' : '公历待确认'} · 出生时刻未知` : '未填写生日，仍可查看当日日干符号。';
     $('#culture-entry').textContent = state.culture ? '已开启 · 查看这一日 →' : '由我选择开启 →';
   }
-  const elementOf = value => ({ 甲: '木', 乙: '木', 丙: '火', 丁: '火', 戊: '土', 己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水', 子: '水', 丑: '土', 寅: '木', 卯: '木', 辰: '土', 巳: '火', 午: '火', 未: '土', 申: '金', 酉: '金', 戌: '土', 亥: '水' })[value];
+  const elementOf = value => ({ 甲: '木', 乙: '木', 丙: '火', 丁: '火', 戊: '土', 己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水' })[value];
   function relation(a, b) {
     if (a === b) return `同属${a}`;
     const generates = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
@@ -278,14 +278,13 @@
       try {
         const l = lunarOf(selected);
         if (!l) { target.textContent = '历法组件暂不可用，请稍后重试。'; return; }
-        const dayStem = l.getDayGan(); const dayBranch = l.getDayZhi(); const dayElement = elementOf(dayStem);
+        const dayStem = l.getDayGan(); const dayElement = elementOf(dayStem);
         const birth = state.birthConfirmed && C.isISODate(state.birthday) ? lunarOf(state.birthday) : null;
         const year = birth?.getYearInGanZhiByLiChun();
         const yearElement = year ? elementOf(year[0]) : null;
-        const birthBranchElement = year ? elementOf(year[1]) : null;
-        const cultureRelation = birth ? `年干 ${year[0]}（${yearElement}）与当日日干 ${dayStem}（${dayElement}）：传统符号关系称“${relation(yearElement, dayElement)}”。生肖年支 ${year[1]}（${birthBranchElement}）与当日日支 ${dayBranch}（${elementOf(dayBranch)}）：${relation(birthBranchElement, elementOf(dayBranch))}。` : '确认公历生日后，可查看年干、生肖年支与当日符号的对应关系。';
+        const cultureRelation = birth ? `年干 ${year[0]}（${yearElement}）与当日日干 ${dayStem}（${dayElement}）：传统符号关系称“${relation(yearElement, dayElement)}”。` : '确认公历生日后，可查看年干与当日日干的传统对应。';
         const inspirations = { 木: '木 · 生长：如果喜欢，可以看看窗外的树，给自己一点慢慢生长的余地。', 火: '火 · 微光：如果喜欢，可以为房间留一盏柔和的灯。', 土: '土 · 安定：如果喜欢，可以整理一个小角落，只整理到舒服为止。', 金: '金 · 留白：如果喜欢，可以暂时放下一件不紧急的小事。', 水: '水 · 流动：如果喜欢，可以听一点舒缓的声音，让念头自然经过。' };
-        target.innerHTML = `<div class="culture-top"><div><p class="eyebrow">A LITTLE CULTURAL RITUAL</p><h2>今天的一点灵感</h2><p class="culture-date">${dateLabel(selected)} · 农历${escape(l.getMonthInChinese())}月${escape(l.getDayInChinese())}</p></div><button class="small-link" data-disable-culture>关闭栏目</button></div><div class="culture-cells"><div class="culture-cell"><small>这一天的干支</small><strong>${escape(l.getDayInGanZhi())}</strong><p>日干 ${dayStem} · 属${dayElement}</p></div><div class="culture-cell"><small>出生年生肖</small><strong>${birth ? escape(birth.getYearShengXiaoByLiChun()) : '待确认'}</strong><p>${birth ? '年柱 ' + escape(year) + ' · 按立春年界' : '请确认公历生日'}</p></div><div class="culture-cell"><small>本日象征元素</small><strong>${dayElement}</strong><p>取自日干，不是你的五行</p></div></div><p class="culture-footnote">${escape(cultureRelation)}“生、克”仅是传统术语，不表示今天吉凶、身体好坏或活动禁忌。</p><p class="culture-inspiration">自选生活灵感 · ${inspirations[dayElement]}</p><p class="culture-footnote">出生时刻未知，未排完整八字，不判断喜用神或五行缺失。本栏不参与经期照护建议；这里的灵感是编辑选配，不是古籍宜忌。</p>`;
+        target.innerHTML = `<div class="culture-top"><div><p class="eyebrow">A LITTLE CULTURAL RITUAL</p><h2>今天的一点灵感</h2><p class="culture-date">${dateLabel(selected)} · 农历${escape(l.getMonthInChinese())}月${escape(l.getDayInChinese())}</p></div><button class="small-link" data-disable-culture>关闭栏目</button></div><div class="culture-cells"><div class="culture-cell"><small>这一天的干支</small><strong>${escape(l.getDayInGanZhi())}</strong><p>日干 ${dayStem} · 属${dayElement}</p></div><div class="culture-cell"><small>出生年生肖</small><strong>${birth ? escape(birth.getYearShengXiaoByLiChun()) : '待确认'}</strong><p>${birth ? '年柱 ' + escape(year) + ' · 按立春年界' : '请确认公历生日'}</p></div><div class="culture-cell"><small>本日象征元素</small><strong>${dayElement}</strong><p>取自日干，不是你的五行</p></div></div><p class="culture-footnote">${escape(cultureRelation)}“生、克”仅是传统术语，不表示今天吉凶、身体好坏或活动禁忌。</p><p class="culture-inspiration">自选生活灵感 · ${inspirations[dayElement]}</p><p class="culture-footnote">出生时刻未知，未排完整八字，不判断喜用神或五行缺失。本栏不参与经期照护建议；这里的灵感是编辑选配，不是古籍宜忌。</p><div class="companion-links"><button class="small-link" data-read-article="culture-ten-stems-elements">五行对应的出处 ↗</button><button class="small-link" data-read-article="culture-generating-overcoming-cycles">相生相克的出处 ↗</button></div>`;
       } catch (_) { target.textContent = '这一天的历法信息暂不可用。经期记录仍可正常使用。'; }
     });
   }

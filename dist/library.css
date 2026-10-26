@@ -225,3 +225,19 @@
   .library-intro-stats { gap: 16px; }
   .ritual-workbench { padding: 24px 16px; }
 }
+
+/* Source transparency stays beside the knowledge it qualifies. */
+.article-evidence { padding: 18px 20px; margin: 24px 0; background: var(--sage-light); border-left: 3px solid var(--sage); border-radius: 0 8px 8px 0; }
+.article-evidence > div { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: baseline; }
+.article-evidence strong { font-size: 15px; color: var(--ink); font-weight: 500; }
+.article-evidence span { font-size: 14px; color: var(--muted); }
+.article-evidence p { font-size: 14px; line-height: 1.95; margin-top: 8px; }
+.article-source { padding: 8px 0 16px; border-bottom: 1px solid var(--line); }
+.article-source:last-of-type { border: 0; }
+.article-source a span { text-decoration: none; }
+.article-sources .article-source p { margin: 0; font-size: 14px; line-height: 1.9; }
+.article-kind.tcm { color: var(--warm-ink); }
+.library-guidance.tcm > span { color: var(--warm-ink); }
+@media (max-width:700px) { .library-intro-stats { gap: 8px 20px; flex-wrap: wrap; } .article-evidence { padding: 16px; } .library-tabs > button { font-size: 14px; } }
+
+.article-paragraphs .paragraph-source { display: inline-block; font-size: 14px; margin-left: 6px; color: var(--sage); text-decoration: underline; text-underline-offset: 3px; padding: 0 2px; min-width: 24px; }
