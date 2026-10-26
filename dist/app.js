@@ -6,6 +6,7 @@
   const P = window.MoonPeriods;
   const BACKUP_KEY = 'yuejian.personal.pre-periods-v2';
   const STORAGE_KEY = 'yuejian.personal.v1';
+  const CARE_TOPICS = ['tcm', 'herbal', 'acupuncture', 'moxibustion', 'movement', 'products'];
   const ACTIVITY = { read: ['book', '读几页熟悉的书', '只读想读的部分，不需要读完。'], walk: ['leaf', '散一小会儿步', '如果身体舒服，可以慢慢走；不舒服就停下。'], music: ['music', '听一首喜欢的歌', '音量小一点，选择让自己舒服的声音。'], warm: ['cup', '留一点舒服的温度', '按喜好喝点水，或隔布温热敷，注意避免烫伤。'], rest: ['moon', '给休息留一点位置', '找一个舒服的位置，暂时放下要赶上的事情。'], shower: ['drop', '洗个舒服的温水澡', '按自己的习惯与感觉来，不用赶时间。'] };
   const iconPaths = { sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>', moon: '<path d="M20.7 14.5A9 9 0 0 1 9.5 3.3 9 9 0 1 0 20.7 14.5Z"/>', calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-14 4h2m4 0h2m-8 3h2"/>', book: '<path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15M5 8h3m-3 4h3m8-4h3m-3 4h3"/>', flower: '<path d="M12 12c-8 1-9-5-5-6 3-1 5 3 5 6Zm0 0c-5-6-1-10 2-7 2 2 0 6-2 7Zm0 0c1-8 7-9 8-5 1 3-3 5-8 5Zm0 0c7-1 9 5 5 6-3 1-5-2-5-6Zm0 0c5 6 0 10-3 7-2-2 1-6 3-7Zm0 0c-1 8-7 7-8 4-1-3 4-4 8-4Z"/>', leaf: '<path d="M19 3C7 2 2 8 5 15c3 6 13 3 14-12ZM5 20c1-6 4-9 9-12"/>', lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>', drop: '<path d="M12 3C9 8 5 11 5 15a7 7 0 0 0 14 0c0-4-4-7-7-12Z"/>', cycle: '<path d="M20 10a8 8 0 0 0-14-4L3 9m0-6v6h6m-5 5a8 8 0 0 0 14 4l3-3m0 6v-6h-6"/>', plus: '<path d="M12 5v14M5 12h14"/>', cup: '<path d="M4 9h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V9Zm12 1h2a3 3 0 0 1 0 6h-2M7 3v3m4-3v3"/>', music: '<path d="M10 17V5l10-2v12M10 9l10-2"/><ellipse cx="7" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/>', download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>' };
   const icon = name => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${iconPaths[name] || iconPaths.leaf}</svg>`;
@@ -40,7 +41,7 @@
     result.culture = data.culture === true; result.quiet = data.quiet === true;
     if (data.entries && typeof data.entries === 'object' && !Array.isArray(data.entries)) Object.entries(data.entries).forEach(([date, e]) => {
       if (!C.isISODate(date) || date > C.todayISO() || !e || typeof e !== 'object') return;
-      result.entries[date] = { mood: ['平静', '紧绷', '很难受'].includes(e.mood) ? e.mood : '', pain: [0, 2, 5, 8, 10].includes(e.pain) ? e.pain : null, energy: ['low', 'medium', 'high'].includes(e.energy) ? e.energy : '', support: ['独处', '安静陪伴', '具体帮助'].includes(e.support) ? e.support : '', note: typeof e.note === 'string' ? e.note.slice(0, 500) : '' };
+      result.entries[date] = { mood: ['平静', '紧绷', '很难受'].includes(e.mood) ? e.mood : '', pain: [0, 2, 5, 8, 10].includes(e.pain) ? e.pain : null, energy: ['low', 'medium', 'high'].includes(e.energy) ? e.energy : '', support: ['独处', '安静陪伴', '具体帮助'].includes(e.support) ? e.support : '', note: typeof e.note === 'string' ? e.note.slice(0, 500) : '', sleep: ['poor', 'okay'].includes(e.sleep) ? e.sleep : '', flow: ['usual', 'heavy', 'unexpected'].includes(e.flow) ? e.flow : '', topics: Array.isArray(e.topics) ? [...new Set(e.topics.filter(key => CARE_TOPICS.includes(key)))] : [] };
     });
     if (data.tasks && typeof data.tasks === 'object' && !Array.isArray(data.tasks)) Object.entries(data.tasks).forEach(([d, tasks]) => { if (C.isISODate(d) && Array.isArray(tasks)) result.tasks[d] = tasks.filter(k => Object.hasOwn(ACTIVITY, k)); });
     return result;
@@ -52,7 +53,7 @@
   }
   let state = loadState();
   let today = C.todayISO(), selected = today, displayedMonth = today.slice(0, 7);
-  let mood = '', support = '', groundStep = 0, toastTimer, periodUndo = null;
+  let mood = '', support = '', groundStep = 0, toastTimer, periodUndo = null, currentAdvice = null, currentAdviceDate = null;
   let periodEditor = { id: null, token: '' };
   const energyLabels = { low: '想慢一点', medium: '还可以', high: '精力充足' };
   const supportLabels = { ask: '每次先问她', alone: '独处，不打扰', quiet: '安静陪伴', help: '具体帮助' };
@@ -111,7 +112,7 @@
   function getInfo(date = selected) { return C.getCycle(state, date, today); }
   function changeDay(iso) {
     if (!C.isISODate(iso)) return;
-    selected = iso;
+    selected = iso; displayedMonth = iso.slice(0, 7);
     renderToday(); renderCalendar(); renderCulture();
   }
   function navigate(view) {
@@ -174,10 +175,12 @@
     mood = entry.mood || ''; support = entry.support || '';
     $('#pain').value = entry.pain === null || entry.pain === undefined ? '' : entry.pain;
     $('#energy').value = entry.energy || '';
+    $('#sleep').value = entry.sleep || ''; $('#flow').value = entry.flow || '';
+    $$('[data-care-topic]').forEach(el => { el.checked = (entry.topics || []).includes(el.dataset.careTopic); });
     $('#note').value = entry.note || '';
     updateChoices();
     const future = selected > today;
-    $$('#checkin-form button, #checkin-form select, #checkin-form textarea').forEach(el => { el.disabled = future; });
+    $$('#checkin-form button, #checkin-form select, #checkin-form textarea, #checkin-form input').forEach(el => { el.disabled = future; });
     $('#checkin-form button[type=submit]').textContent = future ? '感受留待当天再记录' : entry.mood !== undefined ? '更新这份感受 ↗' : '收好这份感受 ↗';
     $('#save-note').textContent = future ? '可以查看未来安排，不能提前记录真实感受。' : storageWarning ? '本机保存不可用，请导出数据。' : entry.mood !== undefined ? '这一天已有记录，可修改或到小记中删除。' : '只保存在当前浏览器，可随时删除。';
     renderCare(); renderHealth(); renderCompanion();
@@ -251,7 +254,7 @@
     $('#entry-count').textContent = entries.length;
     $('#journal-list').innerHTML = entries.length ? entries.map(([date, e]) => {
       const cycle = getInfo(date);
-      const tags = [cycle.day !== null ? `周期第 ${cycle.day} 天` : '', e.mood, e.pain !== null ? `疼痛 ${e.pain}/10` : '', energyLabels[e.energy], e.support].filter(Boolean);
+      const tags = [cycle.day !== null ? `周期第 ${cycle.day} 天` : '', e.mood, e.pain !== null ? `疼痛 ${e.pain}/10` : '', energyLabels[e.energy], e.support, e.sleep === 'poor' ? '睡眠困扰' : '', e.flow === 'heavy' ? '出血明显偏多' : e.flow === 'unexpected' ? '经期外出血' : ''].filter(Boolean);
       return `<article class="journal-entry"><time datetime="${date}">${dateLabel(date)}<small class="muted fine"> · ${date.slice(0, 4)}</small></time><div><div class="entry-tags">${tags.map(t => `<span>${escape(t)}</span>`).join('')}</div><p class="entry-note">${e.note ? escape(e.note) : '这一天，留了一点空间给自己。'}</p></div><div class="entry-actions"><button class="small-link" data-edit-entry="${date}">编辑</button><button class="delete-entry" data-delete-entry="${date}" aria-label="删除${date}小记">删除</button></div></article>`;
     }).join('') : '<div class="empty-state"><span>❧</span><h3>空白，也是舒服的开始。</h3><p>想留下什么的时候，再写第一篇。</p><a class="button outline" href="#today">回到今天，记一下 →</a></div>';
   }
@@ -295,14 +298,32 @@
     $('#partner-likes').value = profile.likes; $('#partner-avoid').value = profile.avoid; $('#partner-consent').checked = profile.consent;
     $('#companion-profile-note').textContent = profile.consent && profile.nickname ? `给${profile.nickname}的照护，从她愿意分享的信息开始。` : '填写她愿意分享的信息，照护建议会随实际经期更新。';
   }
+  function adviceCultureInfo() {
+    if (!state.culture || state.quiet) return null;
+    try {
+      const lunar = lunarOf(selected); const element = elementOf(lunar.getDayGan());
+      const inspirations = { 木: '如果她愿意，一起看看窗外的植物，或留一段不赶时间的散步。', 火: '如果她喜欢，留一盏柔和的灯，或一起听一首熟悉的歌。', 土: '如果她愿意，帮她整理一个小角落，让休息的位置更舒服。', 金: '帮她放下一件不急的待办，给这一天留一点空白。', 水: '如果她喜欢，准备安静的环境，让她听歌或休息。' };
+      return { element, label: lunar.getDayInGanZhi() + '日 · 日干属' + element, inspiration: inspirations[element], birthKnown: state.birthConfirmed && !!state.birthday };
+    } catch (_) { return null; }
+  }
   function renderCompanion() {
-    if (!window.MoonCompanion) return;
-    const entrySupport = support;
+    if (!window.MoonAdvice) return;
     const partner = state.partner.consent ? { ...state.partner, support: supportLabels[state.partner.support] } : {};
-    if (entrySupport) partner.support = entrySupport;
-    const guide = window.MoonCompanion.buildGuide({ date: selected, today, info: getInfo(), partner, mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value });
-    const articles = [...(window.MoonHealthArticles || []), ...(window.MoonCultureArticles || [])];
-    $('#companion-guide').innerHTML = `<div class="companion-heading"><div><p class="eyebrow">CARE, WITH HER</p><span class="pill">${escape(guide.phaseLabel)}</span><h2>${escape(guide.headline)}</h2></div><a class="small-link" href="#about">调整她的偏好 →</a></div><div class="companion-actions">${guide.actions.map((action, i) => `<article class="companion-action"><span class="companion-number">0${i + 1}</span><div><h3>${escape(action.title)}</h3><p>${escape(action.body)}</p></div></article>`).join('')}</div><div class="companion-ask"><strong>可以这样问她</strong><p>“${escape(guide.ask)}”</p></div><p class="companion-avoid"><strong>先避开</strong> ${escape(guide.avoid)}</p><div class="companion-links">${guide.articleIds.map(id => `<button class="small-link" data-read-article="${escape(id)}">${escape(articles.find(article => article.id === id)?.title || '查看相关照护知识')} ↗</button>`).join('')}</div>`;
+    if (support) partner.support = support;
+    const topics = $$('[data-care-topic]:checked').map(el => el.dataset.careTopic);
+    const plan = window.MoonAdvice.buildPlan({ date: selected, today, info: getInfo(), partner, mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value, sleep: $('#sleep').value, flow: $('#flow').value, topics, activities: state.activities, culture: state.culture, quiet: state.quiet, cultureInfo: adviceCultureInfo() });
+    currentAdvice = plan; currentAdviceDate = selected;
+    const articles = [...(window.MoonHealthArticles || []), ...(window.MoonTCMArticles || []), ...(window.MoonCultureArticles || [])];
+    const articleMap = new Map(articles.map(article => [article.id, article]));
+    const kinds = { health: '身体照护', tcm: '中医常识与编辑建议', editorial: '照护安排', culture: '自选文化灵感' };
+    function renderAdvice(card, index = null) {
+      if (!card) return '';
+      const ids = [...new Set(card.articleIds || [])].filter(id => articleMap.has(id));
+      return `<article class="advice-card ${card.urgency === 'medical' ? 'advice-medical' : ''}" data-advice-id="${escape(card.id)}"><div class="advice-card-top"><span>${index === null ? escape(kinds[card.kind] || '照护建议') : String(index + 1).padStart(2, '0')}</span>${card.urgency === 'medical' ? '<strong>优先处理</strong>' : ''}</div><h4>${escape(card.title)}</h4><p>${escape(card.body)}</p><details class="advice-evidence"><summary>为什么这样建议${ids.length ? ' · ' + ids.length + ' 条依据' : ''}</summary><p>${escape(card.reason || '结合她的实际表达与这一天的记录整理。')}</p><div class="companion-links">${ids.map(id => `<button class="small-link" data-read-article="${escape(id)}">${escape(articleMap.get(id).title)} ↗</button>`).join('')}</div></details></article>`;
+    }
+    $('#companion-guide').innerHTML = `<div class="companion-heading"><div><span class="pill">${escape(plan.phaseLabel)}</span><h2 id="advice-title">这一天的综合照护建议</h2><p>${escape(plan.headline)}</p></div><button class="small-link" id="advice-adjust-checkin" ${selected > today ? 'disabled' : ''}>${selected > today ? '感受到当天再填写' : '调整当天情况 ↓'}</button></div><div class="advice-context">${(plan.contextNotes || []).map(note => `<span>${escape(note)}</span>`).join('')}</div><div class="advice-section"><h3>先做这几件事</h3><div class="advice-priorities">${(plan.priorities || []).map(renderAdvice).join('')}</div></div><div class="advice-section"><h3>饮食与日常调护</h3><div class="advice-secondary">${(plan.tcm || []).map(card => renderAdvice(card)).join('')}</div></div><div class="advice-section"><h3>怎样陪伴，哪些先避开</h3><div class="advice-secondary">${renderAdvice(plan.support)}${(plan.avoid || []).map(card => renderAdvice(card)).join('')}</div></div><div class="companion-ask"><strong>可以这样问她</strong><p>“${escape(plan.ask)}”</p></div>${plan.culture ? `<details class="advice-culture"><summary>再选一点生活灵感 · 可跳过</summary>${renderAdvice(plan.culture)}<p>文化灵感不参与身体风险或治疗判断。</p></details>` : ''}<p class="advice-footnote">建议结合已核对的经期与中医知识、当天填写内容及本人偏好整理。展开“为什么这样建议”可看依据；感受变化时可随时调整。</p>`;
+    $('#advice-adjust-checkin').addEventListener('click', () => { $('#checkin-form').scrollIntoView({ behavior: state.quiet ? 'instant' : 'smooth', block: 'start' }); $('#pain').focus({ preventScroll: true }); });
+    window.MoonLibrary?.refresh();
   }
   function renderDataNotice() {
     $('#data-notice').hidden = !dataReadError;
@@ -365,23 +386,25 @@
     const moodButton = e.target.closest('[data-mood]'); if (moodButton) { mood = mood === moodButton.dataset.mood ? '' : moodButton.dataset.mood; updateChoices(); renderHealth(); renderCompanion(); }
     const supportButton = e.target.closest('[data-support]'); if (supportButton) { support = support === supportButton.dataset.support ? '' : supportButton.dataset.support; updateChoices(); renderCompanion(); }
     const care = e.target.closest('[data-care]'); if (care) { if (selected > today) { toast('可以先想一想，到了当天再记录实际安排。'); return; } const key = care.dataset.care; saveChange(next => { const chosen = next.tasks[selected] || []; next.tasks[selected] = chosen.includes(key) ? chosen.filter(k => k !== key) : [...chosen, key]; }); renderCare(); }
-    const pref = e.target.closest('[data-preference]'); if (pref) { const key = pref.dataset.preference; saveChange(next => { next.activities = next.activities.includes(key) ? next.activities.filter(k => k !== key) : [...next.activities, key]; }); renderPreferences(); renderCare(); }
+    const pref = e.target.closest('[data-preference]'); if (pref) { const key = pref.dataset.preference; saveChange(next => { next.activities = next.activities.includes(key) ? next.activities.filter(k => k !== key) : [...next.activities, key]; }); renderPreferences(); renderCare(); renderCompanion(); }
     const date = e.target.closest('[data-date]'); if (date) changeDay(date.dataset.date);
     const editPeriod = e.target.closest('[data-edit-period]'); if (editPeriod) openPeriodEditor(editPeriod.dataset.editPeriod);
     const delPeriod = e.target.closest('[data-remove-period]'); if (delPeriod) removePeriod(delPeriod.dataset.removePeriod);
     const edit = e.target.closest('[data-edit-entry]'); if (edit) { changeDay(edit.dataset.editEntry); location.hash = 'today'; setTimeout(() => $('#checkin-form').scrollIntoView({ behavior: state.quiet ? 'instant' : 'smooth', block: 'center' }), 50); }
     const delEntry = e.target.closest('[data-delete-entry]'); if (delEntry) { saveChange(next => { delete next.entries[delEntry.dataset.deleteEntry]; }, '已删除这份感受记录。'); renderAll(); }
-    if (e.target.closest('[data-disable-culture]')) { saveChange(next => { next.culture = false; }, '文化栏目已关闭。'); renderPreferences(); renderCulture(); window.MoonLibrary?.refresh(); }
+    if (e.target.closest('[data-disable-culture]')) { saveChange(next => { next.culture = false; }, '文化栏目已关闭。'); renderPreferences(); renderCulture(); renderCompanion(); window.MoonLibrary?.refresh(); }
   });
   $$('dialog').forEach(el => el.addEventListener('click', e => { if (e.target === el) { const r = el.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) el.close(); } }));
   $('#day-prev').addEventListener('click', () => changeDay(C.addDays(selected, -1)));
   $('#day-next').addEventListener('click', () => changeDay(C.addDays(selected, 1)));
   $('#back-today').addEventListener('click', () => changeDay(today));
   $('#pain').addEventListener('change', () => { renderCare(); renderHealth(); renderCompanion(); }); $('#energy').addEventListener('change', () => { renderCare(); renderCompanion(); });
+  ['#sleep', '#flow'].forEach(selector => $(selector).addEventListener('change', renderCompanion));
+  $$('[data-care-topic]').forEach(el => el.addEventListener('change', renderCompanion));
   $('#checkin-form').addEventListener('submit', e => {
     e.preventDefault(); if (selected > today) return;
-    const entry = { mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value, support, note: $('#note').value.trim().slice(0, 500) };
-    if (!entry.mood && entry.pain === null && !entry.energy && !entry.support && !entry.note) { toast('可以留下一项感受，也可以晚一点再来。'); return; }
+    const entry = { mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value, support, note: $('#note').value.trim().slice(0, 500), sleep: $('#sleep').value, flow: $('#flow').value, topics: $$('[data-care-topic]:checked').map(el => el.dataset.careTopic) };
+    if (!entry.mood && entry.pain === null && !entry.energy && !entry.support && !entry.note && !entry.sleep && !entry.flow && !entry.topics.length) { toast('可以留下一项感受，也可以晚一点再来。'); return; }
     const saved = saveChange(next => { next.entries[selected] = entry; }, '这份感受已保存。'); renderJournal(); $('#save-note').textContent = saved ? '已保存在当前浏览器，可以随时修改。' : '保存未成功，请导出数据。';
   });
   $('#period-form').addEventListener('submit', e => {
@@ -406,14 +429,14 @@
     if (saveChange(next => { next.partner = partner; }, '伴侣偏好已保存，可随时修改。')) { renderPartnerForm(); renderCompanion(); }
   });
   $('#settings-form').addEventListener('submit', e => { e.preventDefault(); const cycle = Number($('#setting-cycle').value), duration = Number($('#setting-duration').value); if (!Number.isInteger(cycle) || cycle < 15 || cycle > 90 || !Number.isInteger(duration) || duration < 1 || duration > 14) return; if (saveChange(next => { next.cycleLength = cycle; next.periodLength = duration; next.periodConfirmed = true; }, '已更新周期参考，实际经期起止日保持不变。')) { $('#settings-dialog').close(); renderAll(); } });
-  $('#birthday-form').addEventListener('submit', e => { e.preventDefault(); const date = $('#birth-date').value; if (date && !C.isISODate(date)) return; if (saveChange(next => { next.birthday = date; next.birthConfirmed = $('#birth-confirm').checked && !!date; }, '生日设置已保存。')) { $('#birthday-dialog').close(); renderPreferences(); renderCulture(); window.MoonLibrary?.refresh(); } });
+  $('#birthday-form').addEventListener('submit', e => { e.preventDefault(); const date = $('#birth-date').value; if (date && !C.isISODate(date)) return; if (saveChange(next => { next.birthday = date; next.birthConfirmed = $('#birth-confirm').checked && !!date; }, '生日设置已保存。')) { $('#birthday-dialog').close(); renderPreferences(); renderCulture(); renderCompanion(); window.MoonLibrary?.refresh(); } });
   function shiftMonth(n) { const [y, m] = displayedMonth.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); displayedMonth = d.toISOString().slice(0, 7); renderCalendar(); }
   $('#month-prev').addEventListener('click', () => shiftMonth(-1)); $('#month-next').addEventListener('click', () => shiftMonth(1));
   $('#month-today').addEventListener('click', () => { displayedMonth = today.slice(0, 7); changeDay(today); });
   $('#calendar-see-day').addEventListener('click', () => { location.hash = 'today'; });
-  $('#culture-toggle').addEventListener('change', e => { const enabled = e.target.checked; saveChange(next => { next.culture = enabled; if (enabled) next.quiet = false; }); applyQuiet(); renderPreferences(); renderCulture(); window.MoonLibrary?.refresh(); });
-  $('#culture-entry').addEventListener('click', () => { saveChange(next => { next.culture = true; next.quiet = false; }); applyQuiet(); renderPreferences(); renderCulture(); window.MoonLibrary?.refresh(); $('#home-culture').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
-  $('#quiet-toggle').addEventListener('click', () => { const enabled = !state.quiet; saveChange(next => { next.quiet = enabled; }, enabled ? '安静模式已开启，文化栏目和装饰已收起。' : '已回到日常模式。'); applyQuiet(); window.MoonLibrary?.refresh(); });
+  $('#culture-toggle').addEventListener('change', e => { const enabled = e.target.checked; saveChange(next => { next.culture = enabled; if (enabled) next.quiet = false; }); applyQuiet(); renderPreferences(); renderCulture(); renderCompanion(); window.MoonLibrary?.refresh(); });
+  $('#culture-entry').addEventListener('click', () => { saveChange(next => { next.culture = true; next.quiet = false; }); applyQuiet(); renderPreferences(); renderCulture(); renderCompanion(); window.MoonLibrary?.refresh(); $('#home-culture').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  $('#quiet-toggle').addEventListener('click', () => { const enabled = !state.quiet; saveChange(next => { next.quiet = enabled; }, enabled ? '安静模式已开启，文化栏目和装饰已收起。' : '已回到日常模式。'); applyQuiet(); renderCompanion(); window.MoonLibrary?.refresh(); });
   $('#ground-next').addEventListener('click', () => { if (groundStep === 2) $('#ground-dialog').close(); else { groundStep++; renderGround(); } });
   $('#export-data').addEventListener('click', downloadData); $('#export-journal').addEventListener('click', downloadData);
   $('#delete-confirm').addEventListener('change', e => { $('#delete-data').disabled = !e.target.checked; });
@@ -434,7 +457,7 @@
   // Refresh the visible date when a tab resumes on a new Shanghai calendar day.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { const now = C.todayISO(); if (now !== today) { const wasToday = selected === today; today = now; if (wasToday) selected = now; renderAll(); } } });
   window.MoonLibrary?.init({
-    getContext: () => ({ date: selected, info: getInfo(), mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value, culture: state.culture, quiet: state.quiet, birthday: state.birthday, birthConfirmed: state.birthConfirmed }),
+    getContext: () => ({ date: selected, adviceArticleIds: currentAdviceDate === selected ? currentAdvice?.selectedArticleIds : [], info: getInfo(), mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value, culture: state.culture, quiet: state.quiet, birthday: state.birthday, birthConfirmed: state.birthConfirmed }),
     setCulture: enabled => { saveChange(next => { next.culture = enabled; if (enabled) next.quiet = false; }); renderAll(); },
     changeDay,
     notify: toast

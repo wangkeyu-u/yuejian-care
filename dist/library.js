@@ -92,10 +92,12 @@
   }
   function renderDaily() {
     const c = context();
-    const ids = model.recommendedIds(c);
-    $('#daily-reading-context').textContent = c.pain !== null && Number(c.pain) >= 8 ? '根据刚选的明显疼痛，先看看何时就医与日常缓解方式。' : c.mood === '紧绷' || c.mood === '很难受' ? '根据刚选的感受，先看看情绪与睡眠的相关知识。' : c.info?.phase === 'period' ? '根据当前经期参考日，选了两条可能用得上的知识。' : '还没遇到的问题，也可以先慢慢了解。';
-    const rows = ids.map(id => articleById.get(id)).filter(Boolean);
-    $('#daily-reading-list').innerHTML = rows.map(a => `<button class="daily-reading-card" data-read-article="${a.id}"><span>身体照护 · ${esc(a.category)}</span><strong>${esc(a.title)}</strong><p>${esc(a.summary)}</p><i>打开读一读 ↗</i></button>`).join('') + (cultureVisible() ? `<button class="daily-reading-card cultural" data-open-culture-library><span>文化灵感 · 自己做主</span><strong>今天的五行，能成为一点生活灵感吗？</strong><p>解释日干与出生年符号，再为这一天挑一个自选小仪式。</p><i>看看今天的灵感 ↗</i></button>` : '');
+    const linked = Array.isArray(c.adviceArticleIds) ? c.adviceArticleIds.map(id => articleById.get(id)).filter(Boolean) : [];
+    const healthRows = linked.filter(row => row.kind === 'health').slice(0, 2);
+    const tcmRow = linked.find(row => row.kind === 'tcm');
+    const rows = linked.length ? [...healthRows, ...(tcmRow ? [tcmRow] : [])] : model.recommendedIds(c).map(id => articleById.get(id)).filter(Boolean);
+    $('#daily-reading-context').textContent = linked.length ? '这些原文对应上方综合建议，想多了解时再展开阅读。' : '先按实际感受填写，再查看对应的照护依据。';
+    $('#daily-reading-list').innerHTML = rows.map(a => `<button class="daily-reading-card" data-read-article="${a.id}"><span>${a.kind === 'tcm' ? '中医常识' : '身体照护'} · ${esc(a.category)}</span><strong>${esc(a.title)}</strong><p>${esc(a.summary)}</p><i>打开读一读 ↗</i></button>`).join('');
   }
   function renderRitual() {
     const c = context(); const date = c.date;

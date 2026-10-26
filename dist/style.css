@@ -538,3 +538,41 @@ dialog::backdrop { background: #28342166; }
 .companion-heading .eyebrow { display: none; }
 .companion-heading .pill { font-size: 14px; color: var(--warm-ink); }
 .companion-number { display: block; font: 22px/1.4 Georgia, serif; color: var(--sage); margin-bottom: 10px; }
+
+/* The daily plan turns source knowledge into a short, contextual set of actions. */
+.advice-context { display: flex; flex-wrap: wrap; gap: 8px; margin: -8px 0 24px; }
+.advice-context span { padding: 4px 10px; background: var(--sage-light); border-radius: 5px; font-size: 14px; color: var(--sage); }
+.advice-section { margin-top: 28px; }
+.advice-section > h3 { font-size: 16px; font-weight: 500; color: var(--muted); margin-bottom: 14px; }
+.advice-priorities { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,260px),1fr)); gap: 24px; }
+.advice-secondary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+.advice-secondary > :only-child { grid-column: 1 / -1; }
+.advice-card { min-width: 0; padding: 20px 0 12px; border-top: 1px solid var(--line-strong); }
+.advice-card-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 26px; margin-bottom: 10px; font-size: 14px; color: var(--sage); }
+.advice-card-top strong { color: var(--rose); font-size: 14px; font-weight: 500; }
+.advice-card h4 { font-size: 18px; line-height: 1.65; font-weight: 500; margin: 0 0 10px; }
+.advice-card > p { font-size: 15px; line-height: 1.95; }
+.advice-medical { grid-column: 1 / -1; background: var(--rose-light); border: 1px solid #c59785; border-left: 4px solid var(--rose); border-radius: 0 10px 10px 0; padding: 20px 24px; }
+.advice-evidence { margin-top: 10px; font-size: 14px; }
+.advice-evidence summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--sage); list-style: none; }
+.advice-evidence summary:before { content: '＋'; margin-right: 8px; }
+.advice-evidence[open] summary:before { content: '－'; }
+.advice-evidence p { font-size: 14px; line-height: 1.95; padding: 4px 0 8px; }
+.advice-evidence .companion-links { gap: 0 16px; margin-top: 0; }
+.advice-evidence .small-link { font-size: 14px; }
+.advice-culture { margin-top: 24px; border-top: 1px solid var(--line); }
+.advice-culture > summary { cursor: pointer; min-height: 52px; padding: 12px 0; color: var(--warm-ink); font-size: 15px; }
+.advice-culture .advice-card { border: 0; padding-top: 4px; }
+.advice-culture > p, .advice-footnote { font-size: 14px; line-height: 1.9; }
+.advice-footnote { margin-top: 24px; }
+.checkin-extra { margin: 20px 0; border-block: 1px solid var(--line); }
+.checkin-extra > summary { min-height: 52px; display: flex; align-items: center; cursor: pointer; font-size: 14px; color: var(--sage); }
+.checkin-extra .two-fields { margin-top: 16px; }
+.advice-topic-options { margin-top: 20px; padding: 0 0 16px; }
+.advice-topic-options legend { margin-bottom: 10px; }
+.advice-topic-options legend span { display: block; color: var(--muted); font-size: 14px; font-weight: 400; }
+.advice-topic-options label { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; cursor: pointer; }
+.advice-topic-options input { width: 20px; height: 20px; accent-color: var(--sage); flex-shrink: 0; }
+.advice-evidence summary:focus-visible, .advice-culture > summary:focus-visible, .checkin-extra > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+@media (max-width:1100px) { .advice-priorities { grid-template-columns: 1fr; gap: 12px; } }
+@media (max-width:700px) { .advice-secondary { grid-template-columns: 1fr; gap: 12px; } .advice-context { margin-top: 0; } .advice-section { margin-top: 24px; } .advice-section > h3 { font-size: 15px; } .advice-card { padding-top: 16px; } .advice-card h4 { font-size: 19px; } .advice-card > p { font-size: 16px; } .advice-medical { padding: 20px 16px; } .checkin-extra > summary, .advice-topic-options label { font-size: 15px; } }

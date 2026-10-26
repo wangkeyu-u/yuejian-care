@@ -261,5 +261,5 @@
     };
   }
 
-  return { buildGuide: buildGuide };
+  return { buildGuide: buildGuide, determineStage: determineStage };
 });
