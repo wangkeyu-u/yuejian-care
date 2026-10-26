@@ -1,10 +1,10 @@
 # 当天照护建议的综合规则
 
-`dist/advice.js` 通过固定规则，把已核对的 22 篇健康、8 篇中医、18 篇文化知识组织成当天可以采取的行动。它不是让语言模型临时编写医疗意见，也不做诊断、用药处方、排卵或命运预测。
+`public/advice.js` 通过固定规则，把已核对的 22 篇健康、8 篇中医、18 篇文化知识组织成当天可以采取的行动。它不是让语言模型临时编写医疗意见，也不做诊断、用药处方、排卵或命运预测。
 
 ## 输入与依赖
 
-Node：`require('./dist/advice.js')`。浏览器：`window.MoonAdvice`；需先加载 `core.js`、导出 `determineStage` 的 `companion.js`，以及三个知识数据文件。公开接口为 `buildPlan(context)` 和 `getRuleCoverage()`。
+Node：`require('./public/advice.js')`。浏览器：`window.MoonAdvice`；需先加载 `core.js`、导出 `determineStage` 的 `companion.js`，以及三个知识数据文件。公开接口为 `buildPlan(context)` 和 `getRuleCoverage()`。
 
 `buildPlan` 接收日期、今天、现有 `getCycle` 结果、明确支持选项和已填写的当日感受：
 

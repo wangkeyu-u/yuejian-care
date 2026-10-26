@@ -3,12 +3,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const Advice = require('../dist/advice.js');
-const Core = require('../dist/core.js');
-const Companion = require('../dist/companion.js');
-const health = require('../dist/health-data.js');
-const tcm = require('../dist/tcm-data.js');
-const culture = require('../dist/culture-data.js');
+const Advice = require('../public/advice.js');
+const Core = require('../public/core.js');
+const Companion = require('../public/companion.js');
+const health = require('../public/health-data.js');
+const tcm = require('../public/tcm-data.js');
+const culture = require('../public/culture-data.js');
 const catalog = [...health, ...tcm, ...culture];
 const knownIds = new Set(catalog.map(article => article.id));
 const today = '2026-10-26';
@@ -19,7 +19,7 @@ const nonCulture = plan => ({ phaseLabel: plan.phaseLabel, certainty: plan.certa
 
 test('exports a deterministic Node API and browser UMD API without mutating context', () => {
   const sandbox = { MoonCore: Core, MoonCompanion: Companion, MoonHealthArticles: health, MoonTCMArticles: tcm, MoonCultureArticles: culture };
-  vm.runInNewContext(fs.readFileSync(require.resolve('../dist/advice.js'), 'utf8'), sandbox);
+  vm.runInNewContext(fs.readFileSync(require.resolve('../public/advice.js'), 'utf8'), sandbox);
   assert.equal(typeof sandbox.MoonAdvice.buildPlan, 'function');
   const input = { ...base(), info: actualPeriod(), partner: { consent: true, nickname: '<她>', support: 'quiet', likes: '<任意原文>', avoid: '不要独处' }, topics: ['tcm', 'products'], culture: true, cultureInfo: { element: '水', label: '日历标签', inspiration: '听歌' } };
   const snapshot = structuredClone(input);

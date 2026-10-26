@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const MoonCompanion = require('../dist/companion.js');
+const MoonCompanion = require('../public/companion.js');
 
 const context = (overrides = {}) => ({
   date: '2024-01-15',
@@ -16,7 +16,7 @@ const context = (overrides = {}) => ({
 
 test('exports buildGuide in Node and as a browser UMD global', () => {
   assert.equal(typeof MoonCompanion.buildGuide, 'function');
-  const source = require('node:fs').readFileSync(require.resolve('../dist/companion.js'), 'utf8');
+  const source = require('node:fs').readFileSync(require.resolve('../public/companion.js'), 'utf8');
   const browserContext = {};
   vm.runInNewContext(source, browserContext);
   assert.equal(typeof browserContext.MoonCompanion.buildGuide, 'function');

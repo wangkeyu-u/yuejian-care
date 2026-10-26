@@ -1,9 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { filterArticles, recommendedIds } = require('../dist/library-model.js');
-const health = require('../dist/health-data.js').map(a => ({ ...a, kind: 'health' }));
-const tcm = require('../dist/tcm-data.js').map(a => ({ ...a, kind: 'tcm' }));
-const culture = require('../dist/culture-data.js').map(a => ({ ...a, kind: 'culture' }));
+const { filterArticles, recommendedIds } = require('../public/library-model.js');
+const health = require('../public/health-data.js').map(a => ({ ...a, kind: 'health' }));
+const tcm = require('../public/tcm-data.js').map(a => ({ ...a, kind: 'tcm' }));
+const culture = require('../public/culture-data.js').map(a => ({ ...a, kind: 'culture' }));
 const all = [...health, ...tcm, ...culture];
 
 test('culture stays hidden from search and saved items until explicitly enabled', () => {

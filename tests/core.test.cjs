@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const MoonCore = require('../dist/core.js');
+const MoonCore = require('../public/core.js');
 
 const profile = (starts = ['2024-01-01'], cycleLength = 28, periodLength = 5) => ({
   starts,
@@ -38,7 +38,7 @@ test('date arithmetic is date-only across leap days and year boundaries', () => 
 });
 
 test('browser UMD build exposes MoonCore global', () => {
-  const source = require('node:fs').readFileSync(require.resolve('../dist/core.js'), 'utf8');
+  const source = require('node:fs').readFileSync(require.resolve('../public/core.js'), 'utf8');
   const context = {};
   vm.runInNewContext(source, context);
   assert.equal(typeof context.MoonCore.getCycle, 'function');

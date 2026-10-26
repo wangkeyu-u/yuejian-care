@@ -6,6 +6,7 @@
   const P = window.MoonPeriods;
   const BACKUP_KEY = 'yuejian.personal.pre-periods-v2';
   const STORAGE_KEY = 'yuejian.personal.v1';
+  const IMPORT_BACKUP_KEY = 'yuejian.pre-import.v1';
   const CARE_TOPICS = ['tcm', 'herbal', 'acupuncture', 'moxibustion', 'movement', 'products'];
   const ACTIVITY = { read: ['book', '读几页熟悉的书', '只读想读的部分，不需要读完。'], walk: ['leaf', '散一小会儿步', '如果身体舒服，可以慢慢走；不舒服就停下。'], music: ['music', '听一首喜欢的歌', '音量小一点，选择让自己舒服的声音。'], warm: ['cup', '留一点舒服的温度', '按喜好喝点水，或隔布温热敷，注意避免烫伤。'], rest: ['moon', '给休息留一点位置', '找一个舒服的位置，暂时放下要赶上的事情。'], shower: ['drop', '洗个舒服的温水澡', '按自己的习惯与感觉来，不用赶时间。'] };
   const iconPaths = { sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>', moon: '<path d="M20.7 14.5A9 9 0 0 1 9.5 3.3 9 9 0 1 0 20.7 14.5Z"/>', calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-14 4h2m4 0h2m-8 3h2"/>', book: '<path d="M12 5c-3-2-6-2-10-1v15c4-1 7-1 10 1 3-2 6-2 10-1V4c-4-1-7-1-10 1Zm0 0v15M5 8h3m-3 4h3m8-4h3m-3 4h3"/>', flower: '<path d="M12 12c-8 1-9-5-5-6 3-1 5 3 5 6Zm0 0c-5-6-1-10 2-7 2 2 0 6-2 7Zm0 0c1-8 7-9 8-5 1 3-3 5-8 5Zm0 0c7-1 9 5 5 6-3 1-5-2-5-6Zm0 0c5 6 0 10-3 7-2-2 1-6 3-7Zm0 0c-1 8-7 7-8 4-1-3 4-4 8-4Z"/>', leaf: '<path d="M19 3C7 2 2 8 5 15c3 6 13 3 14-12ZM5 20c1-6 4-9 9-12"/>', lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>', drop: '<path d="M12 3C9 8 5 11 5 15a7 7 0 0 0 14 0c0-4-4-7-7-12Z"/>', cycle: '<path d="M20 10a8 8 0 0 0-14-4L3 9m0-6v6h6m-5 5a8 8 0 0 0 14 4l3-3m0 6v-6h-6"/>', plus: '<path d="M12 5v14M5 12h14"/>', cup: '<path d="M4 9h12v7a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4V9Zm12 1h2a3 3 0 0 1 0 6h-2M7 3v3m4-3v3"/>', music: '<path d="M10 17V5l10-2v12M10 9l10-2"/><ellipse cx="7" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/>', download: '<path d="M12 3v12m-4-4 4 4 4-4M4 16v5h16v-5"/>' };
@@ -109,7 +110,8 @@
   function dateLabel(iso, year = false) { const [y, m, d] = iso.split('-').map(Number); return `${year ? y + ' 年 ' : ''}${m} 月 ${d} 日`; }
   function weekday(iso) { return new Intl.DateTimeFormat('zh-CN', { weekday: 'long', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')); }
   function lunarOf(iso) { const [y, m, d] = iso.split('-').map(Number); return window.Solar?.fromYmd(y, m, d).getLunar(); }
-  function getInfo(date = selected) { return C.getCycle(state, date, today); }
+  function getForecast(profile = state) { return window.MoonForecast.estimate(profile, today); }
+  function getInfo(date = selected) { return C.getCycle({...state, cycleLength: getForecast().cycleLength}, date, today); }
   function changeDay(iso) {
     if (!C.isISODate(iso)) return;
     selected = iso; displayedMonth = iso.slice(0, 7);
@@ -139,21 +141,28 @@
   function renderToday() {
     const info = getInfo();
     const current = getInfo(today);
+    const forecast = getForecast();
     $('#today-label').textContent = dateLabel(today) + ' · ' + weekday(today);
     $('#selected-day-label').textContent = selected === today ? '今天 · ' + dateLabel(selected) : dateLabel(selected, true);
     $('#selected-day-note').textContent = selected > today ? '未来的参考安排' : selected < today ? '回看这一天' : weekday(selected);
     $('#back-today').hidden = selected === today;
     $('#day-prev').disabled = selected <= '1900-01-01';
     $('#day-next').disabled = selected >= '2100-12-31';
-    $('#cycle-length-display').textContent = `约 ${state.cycleLength} 天`;
-    const latestRecord = state.periods.at(-1);
-    $('#period-fact-label').textContent = latestRecord ? '最近一次经期' : '经期参考天数';
+    $('#cycle-length-display').textContent = `约 ${forecast.cycleLength} 天${forecast.method === 'history' ? ' · 历史参考' : ''}`;
+    const associatedRecord = state.periods.find(record => record.id === info.periodId);
+    const latestRecord = associatedRecord || state.periods.at(-1);
+    $('#period-fact-label').textContent = latestRecord ? (associatedRecord ? '所查看的经期' : '最近一次经期') : '经期参考天数';
     $('#period-length-display').textContent = latestRecord ? latestRecord.status === 'ended' ? `实际 ${P.actualDuration(latestRecord, today)} 天` : latestRecord.status === 'ongoing' ? `进行第 ${P.actualDuration(latestRecord, today)} 天` : '结束日待确认' : `约 ${state.periodLength} 天`;
     $('#edit-current-period').hidden = !latestRecord;
     $('#finish-current-period').hidden = !latestRecord || latestRecord.status === 'ended';
     $('#period-record-help').textContent = latestRecord ? latestRecord.status === 'ended' ? `${dateLabel(latestRecord.start)}至${dateLabel(latestRecord.end)}，可随时修正。` : '还不知道结束日也可以记录，确认后再补填。' : '实际日期可以提前、推迟，也可以补记与修改。';
-    $('#prediction-badge').hidden = !current.nextStart;
-    $('#next-period').textContent = current.nextStart ? dateLabel(current.nextStart) + (current.overdue ? '（尚未记录）' : '') : '等你填写日期';
+    $('#prediction-badge').hidden = !forecast.nextStart;
+    $('#next-period').textContent = forecast.nextStart ? dateLabel(forecast.nextStart) + (forecast.overdue ? '（待确认）' : '') : forecast.forecastBlocked ? '先确认上次状态' : '等你填写日期';
+    $('#forecast-method').textContent = forecast.method === 'history' ? `历史间隔 · ${forecast.sampleCount} 个` : forecast.method === 'manual' ? '手动参考周期' : '等待记录';
+    $('#forecast-date').textContent = forecast.nextStart ? dateLabel(forecast.nextStart, true) + (forecast.overdue ? ' · 参考日已到或已过' : '') : forecast.forecastBlocked ? '暂不推算新一轮' : '请先记录实际开始日';
+    $('#forecast-range').textContent = forecast.rangeStart && forecast.rangeEnd ? `参考窗口 ${dateLabel(forecast.rangeStart)}—${dateLabel(forecast.rangeEnd)}` : '';
+    $('#forecast-detail').textContent = forecast.method === 'history' ? `最近开始日间隔：${forecast.intervals.join('、')} 天；以中位数 ${forecast.cycleLength} 天估算。` : `当前手动参考为 ${state.cycleLength} 天；记录更多实际开始日后可参考个人历史。`;
+    $('#forecast-notes').textContent = forecast.notes.join(' ');
     $('#cycle-status').innerHTML = '<span></span>' + escape(phaseCopy(info));
     let title = '从了解她开始，<br>把关心落到小事里。';
     let desc = '记录她愿意分享的实际日期，<br>准备经前、经期与经后的照护。';
@@ -323,7 +332,7 @@
     }
     $('#companion-guide').innerHTML = `<div class="companion-heading"><div><span class="pill">${escape(plan.phaseLabel)}</span><h2 id="advice-title">这一天的综合照护建议</h2><p>${escape(plan.headline)}</p></div><button class="small-link" id="advice-adjust-checkin" ${selected > today ? 'disabled' : ''}>${selected > today ? '感受到当天再填写' : '调整当天情况 ↓'}</button></div><div class="advice-context">${(plan.contextNotes || []).map(note => `<span>${escape(note)}</span>`).join('')}</div><div class="advice-section"><h3>先做这几件事</h3><div class="advice-priorities">${(plan.priorities || []).map(renderAdvice).join('')}</div></div><div class="advice-section"><h3>饮食与日常调护</h3><div class="advice-secondary">${(plan.tcm || []).map(card => renderAdvice(card)).join('')}</div></div><div class="advice-section"><h3>怎样陪伴，哪些先避开</h3><div class="advice-secondary">${renderAdvice(plan.support)}${(plan.avoid || []).map(card => renderAdvice(card)).join('')}</div></div><div class="companion-ask"><strong>可以这样问她</strong><p>“${escape(plan.ask)}”</p></div>${plan.culture ? `<details class="advice-culture"><summary>再选一点生活灵感 · 可跳过</summary>${renderAdvice(plan.culture)}<p>文化灵感不参与身体风险或治疗判断。</p></details>` : ''}<p class="advice-footnote">建议结合已核对的经期与中医知识、当天填写内容及本人偏好整理。展开“为什么这样建议”可看依据；感受变化时可随时调整。</p>`;
     $('#advice-adjust-checkin').addEventListener('click', () => { $('#checkin-form').scrollIntoView({ behavior: state.quiet ? 'instant' : 'smooth', block: 'start' }); $('#pain').focus({ preventScroll: true }); });
-    window.MoonLibrary?.refresh();
+    window.MoonLibrary?.refresh(); window.MoonAI?.refresh();
   }
   function renderDataNotice() {
     $('#data-notice').hidden = !dataReadError;
@@ -335,7 +344,7 @@
     $('#period-end-field').hidden = status !== 'ended'; $('#period-end').required = status === 'ended';
     $('#period-end').min = C.isISODate(start) ? start : '1900-01-01';
     const parts = [];
-    if (C.isISODate(start)) { try { parts.push(`以开始日重算，下次预计 ${dateLabel(C.addDays(start, state.cycleLength))}`); } catch (_) { parts.push('下次预计日期超出日历范围'); } }
+    if (C.isISODate(start) && start <= today) { try { const candidate = {id: periodEditor.id || 'preview-new', start, end: status === 'ended' && C.isISODate(end) && end >= start ? end : null, status: status === 'ended' && (!C.isISODate(end) || end < start) ? 'unknown' : status}; const records = P.upsertPeriod(state.periods, candidate, today); const forecast = getForecast({...state, periods: records}); parts.push(forecast.nextStart ? `保存后，最近一次开始日对应的下次参考为 ${dateLabel(forecast.nextStart)}` : '保存后需先确认记录，再显示下次参考'); } catch (_) { parts.push('起止日期或状态需要核对'); } }
     if (status === 'ended' && C.isISODate(start) && C.isISODate(end) && end >= start) parts.push(`实际出血 ${C.diffDays(end, start) + 1} 天`);
     if (status === 'ongoing' && C.isISODate(start) && start <= today) parts.push(`截至今天第 ${C.diffDays(today, start) + 1} 天，结束日确认后再补记`);
     if (status === 'unknown') parts.push('只保存真实开始日，不推定结束日');
@@ -358,7 +367,7 @@
     if (id === 'settings-dialog') { $('#setting-cycle').value = state.cycleLength; $('#setting-duration').value = state.periodLength; }
     if (id === 'birthday-dialog') { $('#birth-date').value = state.birthday; $('#birth-confirm').checked = state.birthConfirmed; }
     if (id === 'ground-dialog') { groundStep = 0; renderGround(); }
-    if (id === 'data-dialog') { $('#delete-confirm').checked = false; $('#delete-data').disabled = true; }
+    if (id === 'data-dialog') { $('#delete-confirm').checked = false; $('#delete-data').disabled = true; try { $('#import-restore').hidden = !localStorage.getItem(IMPORT_BACKUP_KEY); } catch (_) {} }
     $('#' + id)?.showModal();
   }
   function renderGround() {
@@ -367,9 +376,9 @@
     $('#ground-next').textContent = groundStep === 2 ? '就到这里，已经很好' : '再给自己一点空间 →';
   }
   function downloadData() {
-    let legacyBackup = null;
-    try { legacyBackup = localStorage.getItem(BACKUP_KEY); } catch (_) {}
-    const payload = JSON.stringify({ app: '月间', exportedAt: new Date().toISOString(), ...state, library: window.MoonLibrary?.exportState(), legacyBackup, ...(dataReadError ? { unreadableOriginal: protectedRaw, readError: true } : {}) }, null, 2);
+    let legacyBackup = null, preImportBackup = null;
+    try { legacyBackup = localStorage.getItem(BACKUP_KEY); preImportBackup = localStorage.getItem(IMPORT_BACKUP_KEY); } catch (_) {}
+    const payload = JSON.stringify({ app: '月间', exportedAt: new Date().toISOString(), ...state, library: window.MoonLibrary?.exportState(), legacyBackup, preImportBackup, ...(dataReadError ? { unreadableOriginal: protectedRaw, readError: true } : {}) }, null, 2);
     const blob = new Blob([payload], { type: 'application/json;charset=utf-8' }); const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `月间-私人记录-${today}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast('已生成导出文件，请妥善保管。');
@@ -416,12 +425,12 @@
       const candidate = { id: periodEditor.id || (window.crypto?.randomUUID?.() || `period-${Date.now()}-${Math.random().toString(36).slice(2)}`), start, end, status };
       const records = P.upsertPeriod(state.periods, candidate, today);
       if (!commitPeriods(records, periodEditor.token, '经期已更新，月历与周期位置已对齐。')) return;
-      selected = start; displayedMonth = start.slice(0, 7); $('#period-dialog').close(); renderAll();
+      selected = today; displayedMonth = today.slice(0, 7); $('#period-dialog').close(); renderAll(); $('#period-sync-status').textContent = `已保存 ${dateLabel(start)}${end ? '—' + dateLabel(end) : ''}。月历、周期位置和下次参考已重新计算，感受记录保留原日期。`;
     } catch (error) { $('#period-error').textContent = periodError(error); }
   });
   ['#period-date', '#period-status', '#period-end'].forEach(selector => $(selector).addEventListener('change', updatePeriodPreview));
-  $('#edit-current-period').addEventListener('click', () => { const record = state.periods.at(-1); if (record) openPeriodEditor(record.id); });
-  $('#finish-current-period').addEventListener('click', () => { const record = state.periods.at(-1); if (record) openPeriodEditor(record.id, true); });
+  $('#edit-current-period').addEventListener('click', () => { const record = state.periods.find(item => item.id === getInfo().periodId) || state.periods.at(-1); if (record) openPeriodEditor(record.id); });
+  $('#finish-current-period').addEventListener('click', () => { const record = state.periods.find(item => item.id === getInfo().periodId) || state.periods.at(-1); if (record) openPeriodEditor(record.id, true); });
   $('#period-delete').addEventListener('click', () => { if (periodEditor.id) removePeriod(periodEditor.id, periodEditor.token); });
   $('#period-undo').addEventListener('click', () => { if (periodUndo && commitPeriods(periodUndo.periods, periodUndo.token, '已撤销上次经期修改，感受记录保持原日期。', false)) renderAll(); });
   $('#partner-form').addEventListener('submit', e => {
@@ -442,9 +451,36 @@
   $('#delete-confirm').addEventListener('change', e => { $('#delete-data').disabled = !e.target.checked; });
   $('#delete-data').addEventListener('click', () => {
     if (!$('#delete-confirm').checked) return;
-    try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(BACKUP_KEY); window.MoonLibrary?.clear(); } catch (_) { toast('未能清空浏览器存储，请检查浏览器设置。'); return; }
+    try { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(BACKUP_KEY); localStorage.removeItem(IMPORT_BACKUP_KEY); window.MoonLibrary?.clear(); } catch (_) { toast('未能清空浏览器存储，请检查浏览器设置。'); return; }
     state = structuredClone(DEFAULT); storageWarning = false; dataReadError = false; protectedRaw = null; periodUndo = null; selected = today; displayedMonth = today.slice(0, 7);
     $('#data-dialog').close(); renderAll(); toast('全部记录、生日、偏好和迁移备份已清空。');
+  });
+  let pendingImport = null;
+  $('#import-file').addEventListener('change', async event => {
+    pendingImport = null; $('#import-confirm').hidden = true;
+    const file = event.target.files?.[0]; if (!file) return;
+    try {
+      if (file.size > 2 * 1024 * 1024) throw new Error('备份文件超过2MB，请核对文件。');
+      const data = JSON.parse(await file.text());
+      if (!data || typeof data !== 'object' || (!Object.hasOwn(data, 'periods') && !Array.isArray(data.starts))) throw new Error('不是可识别的月间备份。');
+      pendingImport = decodeState(JSON.stringify(data));
+      $('#import-preview').textContent = `准备导入 ${pendingImport.periods.length} 次经期、${Object.keys(pendingImport.entries).length} 天感受和伴侣设置；将替换当前浏览器的这部分记录。原记录会备份，可恢复。百科收藏仍保留本机现有选择。`;
+      $('#import-confirm').hidden = false;
+    } catch (error) { $('#import-preview').textContent = error.message || '文件无法读取，本机记录未改变。'; }
+  });
+  $('#import-confirm').addEventListener('click', () => {
+    if (!pendingImport) return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      localStorage.setItem(IMPORT_BACKUP_KEY, JSON.stringify({raw}));
+      const incoming = structuredClone(pendingImport); incoming.periodRevision = Math.max(incoming.periodRevision,state.periodRevision) + 1;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(incoming)); state = incoming; dataReadError=false; protectedRaw=null; storageWarning=false; periodUndo=null;
+      pendingImport=null; $('#import-confirm').hidden=true; $('#import-restore').hidden=false; $('#import-preview').textContent='已导入。日期和建议已重新计算；可恢复导入前记录。';
+      selected=today; displayedMonth=today.slice(0,7); renderAll();
+    } catch (_) { $('#import-preview').textContent='未能写入，本机记录未替换，请导出后检查浏览器存储。'; }
+  });
+  $('#import-restore').addEventListener('click', () => {
+    try { const backup=JSON.parse(localStorage.getItem(IMPORT_BACKUP_KEY)); if(!backup) return; if(backup.raw===null)localStorage.removeItem(STORAGE_KEY);else localStorage.setItem(STORAGE_KEY,backup.raw); state=loadState();periodUndo=null;renderAll();$('#import-preview').textContent='已恢复导入前的记录。';$('#import-restore').hidden=true; } catch (_) { $('#import-preview').textContent='无法恢复，请保留备份并导出当前数据。'; }
   });
   window.addEventListener('storage', e => {
     if (e.key !== STORAGE_KEY && e.key !== null) return;
@@ -462,6 +498,7 @@
     changeDay,
     notify: toast
   });
+  window.MoonAI?.init({getContext: () => ({date:selected,profile:state,mood,pain:$('#pain').value === '' ? null : Number($('#pain').value),energy:$('#energy').value,sleep:$('#sleep').value,flow:$('#flow').value,support:support || (state.partner.consent ? state.partner.support : 'ask'),topics:$$('[data-care-topic]:checked').map(el=>el.dataset.careTopic)}),getArticles:()=>[...window.MoonHealthArticles,...window.MoonTCMArticles,...window.MoonCultureArticles]});
   renderAll(); navigate(location.hash.slice(1));
   if (storageWarning) setTimeout(() => toast('未能读取本机记录。当前内容可能未保存，请检查浏览器或导出数据。'), 500);
 })();

@@ -2,8 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
-const MoonCore = require('../dist/core.js');
-const MoonPeriods = require('../dist/periods.js');
+const MoonCore = require('../public/core.js');
+const MoonPeriods = require('../public/periods.js');
 
 const TODAY = '2024-03-31';
 
@@ -22,7 +22,7 @@ test('exports the period API in Node and as the browser MoonPeriods global', () 
     assert.equal(typeof MoonPeriods[name], 'function');
   }
 
-  const source = fs.readFileSync(require.resolve('../dist/periods.js'), 'utf8');
+  const source = fs.readFileSync(require.resolve('../public/periods.js'), 'utf8');
   const context = { MoonCore };
   vm.runInNewContext(source, context);
   assert.equal(typeof context.MoonPeriods.validatePeriods, 'function');

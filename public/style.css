@@ -576,3 +576,26 @@ dialog::backdrop { background: #28342166; }
 .advice-evidence summary:focus-visible, .advice-culture > summary:focus-visible, .checkin-extra > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 @media (max-width:1100px) { .advice-priorities { grid-template-columns: 1fr; gap: 12px; } }
 @media (max-width:700px) { .advice-secondary { grid-template-columns: 1fr; gap: 12px; } .advice-context { margin-top: 0; } .advice-section { margin-top: 24px; } .advice-section > h3 { font-size: 15px; } .advice-card { padding-top: 16px; } .advice-card h4 { font-size: 19px; } .advice-card > p { font-size: 16px; } .advice-medical { padding: 20px 16px; } .checkin-extra > summary, .advice-topic-options label { font-size: 15px; } }
+.forecast-panel { padding: 24px; margin: 28px 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
+.forecast-panel h2, .ai-panel h2 { font-size: 24px; }
+.forecast-panel .subtle-tag { max-width: none; }
+.forecast-dates { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: baseline; margin: 18px 0 10px; }
+.forecast-dates strong { font: 25px/1.7 var(--serif); color: var(--warm-ink); }
+.forecast-dates span { font-size: 15px; }
+.forecast-panel > p { font-size: 14px; margin-top: 10px; }
+.forecast-details summary, .ai-preview-details summary { min-height: 44px; cursor: pointer; color: var(--sage); padding: 10px 0; font-size: 14px; }
+.forecast-details p { font-size: 14px; padding: 4px 0 12px; }
+#period-sync-status { color: var(--sage); margin: 8px 0; }
+.ai-panel { border-top: 1px solid var(--line); padding: 24px 0; margin-bottom: 20px; }
+.ai-panel > p { margin-top: 10px; }
+.ai-result { border-left: 3px solid var(--sage); background: var(--paper); padding: 24px; margin-top: 24px; }
+.ai-result h3 { font-family: var(--serif); font-size: 24px; }
+.ai-result > h4 { font-size: 16px; margin: 24px 0 8px; }
+.ai-result > p { font-size: 15px; margin-top: 14px; line-height: 1.95; }
+#ai-dialog { width: min(660px,calc(100% - 32px)); }
+#ai-preview { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; max-height: 260px; overflow: auto; background: var(--sage-light); padding: 16px; border-radius: 8px; }
+#ai-form .check-label { align-items: flex-start; }
+#ai-form .check-label input { margin-top: 3px; }
+.import-label { display: block; margin: 24px 0 10px; font-size: 15px; }
+.import-label input { width: 100%; margin-top: 10px; min-height: 44px; }
+@media(max-width:700px) { .forecast-panel { padding: 20px; } .forecast-panel .section-heading { flex-wrap: wrap; } .forecast-dates strong { font-size: 23px; } .ai-panel .section-heading { flex-wrap: wrap; } .ai-panel .button { white-space: normal; } .ai-result { padding: 20px 16px; } }
