@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+*.tgz
+*.tar.gz
+.openai/
+.impeccable/
+.env
+.env.*
+PERSONAL-PROFILE.md
+*私人记录*.json

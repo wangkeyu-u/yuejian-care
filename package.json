@@ -1,0 +1,14 @@
+{
+  "name": "yuejian-care",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Open-source, browser-local menstrual care for partners",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "start": "python3 -m http.server 4173 --directory dist"
+  },
+  "dependencies": {
+    "lunar-javascript": "1.7.7"
+  },
+  "license": "MIT"
+}
