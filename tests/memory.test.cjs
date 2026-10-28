@@ -37,10 +37,10 @@ test('candidate merge does not change context; approval, replacement and deletio
 });
 test('medication candidates get a review date; invalid limits or secret data cannot be saved',()=>{
  const c=M.validateCandidates([candidate({category:'medication_report',content:'她正在服用医生开的药',quote:'她正在服用医生开的药'})],[source({text:'她正在服用医生开的药'})]);
- const result=M.mergeCandidates(M.empty(),c,today);assert.equal(result.memory.items[0].until,'2026-11-27');
+ const result=M.mergeCandidates(M.empty(),c,today);assert.equal(result.memory.items[0].reviewAt,'2026-11-27');
  assert.throws(()=>M.normalize(memory([item({content:'密码: very_private_value'})])));
  assert.throws(()=>M.approve(memory(Array.from({length:24},(_,i)=>item({id:'m'+i}))),item({id:'extra'}),today));
- assert.equal(M.active(memory([item({until:'2026-10-27'})]),'2026-10-21',today).length,0);
+ assert.equal(M.active(memory([item({until:'2026-10-27'})]),'2026-10-21',today).length,1);
 });
 const wrap=value=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(value)}]}]}));
 const create=async fetchImpl=>(await import(pathToFileURL(path.resolve(__dirname,'../worker/day-ai.mjs')))).createDayAnalyzer({DayContext:D,catalog,fetchImpl,now:()=>today});
@@ -80,7 +80,7 @@ test('manual memory requires confirmation and immediately updates open-day conte
   a.$('#open-today').click();assert.match(a.$('#day-memory-status').textContent,/1 条已确认/);a.$('#day-dialog').close();
   a.$('[data-memory-edit="'+id+'"]').click();change(a,'#memory-content','她平时喜欢提前约好陪伴');a.$('#memory-confirm').checked=true;submit(a,'#memory-form');assert.match(a.$('#memory-system-preview').textContent,/提前约好/);
   const b=app({data:a.raw()});try{assert.match(b.$('#memory-system-preview').textContent,/提前约好/);}finally{b.close();}
-  a.$('[data-memory-delete="'+id+'"]').click();assert(!a.$('#memory-system-preview').textContent.includes('提前约好'));assert.equal(JSON.parse(a.raw()).memory.items.length,0);
+  a.$('[data-memory-delete="'+id+'"]').click();a.$('#memory-delete-confirm').click();assert(!a.$('#memory-system-preview').textContent.includes('提前约好'));assert.equal(JSON.parse(a.raw()).memory.items.length,0);
  }finally{a.close();}
 });
 test('normal AI response extracts pending memory without expiring its own answer; approval invalidates it',async()=>{
@@ -101,5 +101,5 @@ test('cross-tab changes refresh memories and a stale memory editor cannot overwr
  const a=app(),b=app();try{a.$('#memory-add').click();change(a,'#memory-content','旧草稿');manual(b);a.w.localStorage.setItem(KEY,b.raw());a.w.dispatchEvent(new a.w.StorageEvent('storage',{key:KEY,newValue:b.raw()}));assert.match(a.$('#memory-system-preview').textContent,/安静陪伴/);a.$('#memory-confirm').checked=true;submit(a,'#memory-form');assert.match(a.$('#memory-editor-status').textContent,/另一处更新/);assert.equal(a.raw(),b.raw());}finally{a.close();b.close();}
 });
 test('memory import previews, replaces and restores together with personal data',async()=>{
- const a=app();try{manual(a);const before=a.raw(),replacement={...fixture(),memory:memory([item({content:'她通常希望提前商量安排'})])};Object.defineProperty(a.$('#import-file'),'files',{configurable:true,value:[{size:1000,text:async()=>JSON.stringify(replacement)}]});a.$('#import-file').dispatchEvent(new a.w.Event('change'));await tick();assert.match(a.$('#import-preview').textContent,/1 条记忆/);a.$('#import-confirm').click();assert.match(a.$('#memory-system-preview').textContent,/提前商量/);a.$('#import-restore').click();assert.equal(a.raw(),before);assert.match(a.$('#memory-system-preview').textContent,/安静陪伴/);}finally{a.close();}
+ const a=app();try{manual(a);const before=a.raw(),replacement={...fixture(),memory:memory([item({content:'她通常希望提前商量安排'})])};Object.defineProperty(a.$('#import-file'),'files',{configurable:true,value:[{size:1000,text:async()=>JSON.stringify(replacement)}]});a.$('#import-file').dispatchEvent(new a.w.Event('change'));await tick();assert.match(a.$('#import-preview').textContent,/1 条记忆/);a.$('#import-confirm').click();assert.match(a.$('#memory-system-preview').textContent,/提前商量/);a.$('#import-restore').click();assert.deepEqual(S.decode(a.raw()).memory.items,S.decode(before).memory.items);assert.match(a.$('#memory-system-preview').textContent,/安静陪伴/);}finally{a.close();}
 });

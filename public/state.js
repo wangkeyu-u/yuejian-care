@@ -1,11 +1,11 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'),require('./periods.js'),require('./memory.js'));else root.MoonState=factory(root.MoonCore,root.MoonPeriods,root.MoonMemory);})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Periods,Memory){
   'use strict';
-  const KEY='yuejian.personal.v1',BACKUP='yuejian.personal.pre-periods-v2',IMPORT='yuejian.pre-import.v1';
+  const KEY='yuejian.personal.v1',BACKUP='yuejian.personal.pre-periods-v2',IMPORT='yuejian.pre-import.v1',MEMORY_BACKUP='yuejian.memory.pre-v2';
   const topics=['tcm','herbal','acupuncture','moxibustion','movement','products'];
   const text=(value,size)=>typeof value==='string'?value.trim().slice(0,size):'';
   const one=(value,values,fallback='')=>values.includes(value)?value:fallback;
   const defaults=()=>({version:3,revision:0,periodRevision:0,periods:[],starts:[],cycleLength:28,periodLength:5,partner:{nickname:'',support:'ask',likes:'',avoid:'',dietary:'',consent:false},birthday:'',birthConfirmed:false,birthTime:'',city:'',culture:true,quiet:false,model:'gpt-4.1-mini',tone:'gentle',focus:[],memory:Memory.empty(),entries:{},activities:[],tasks:{}});
-  function entry(raw={}){return {mood:one(raw.mood,['平静','紧绷','很难受']),pain:[0,2,5,8,10].includes(raw.pain)?raw.pain:null,energy:one(raw.energy,['low','medium','high']),sleep:one(raw.sleep,['poor','okay']),flow:one(raw.flow,['usual','heavy','unexpected']),support:one(raw.support,['独处','安静陪伴','具体帮助']),note:text(raw.note,500),topics:Array.isArray(raw.topics)?[...new Set(raw.topics.filter(x=>topics.includes(x)))]:[]};}
+  function entry(raw={}){return {privacyBlocks:Array.isArray(raw.privacyBlocks)?raw.privacyBlocks.filter(x=>typeof x==='string'&&/^[a-f0-9]{1,8}$/.test(x)).slice(-2000):[],mood:one(raw.mood,['平静','紧绷','很难受']),pain:[0,2,5,8,10].includes(raw.pain)?raw.pain:null,energy:one(raw.energy,['low','medium','high']),sleep:one(raw.sleep,['poor','okay']),flow:one(raw.flow,['usual','heavy','unexpected']),support:one(raw.support,['独处','安静陪伴','具体帮助']),note:text(raw.note,500),topics:Array.isArray(raw.topics)?[...new Set(raw.topics.filter(x=>topics.includes(x)))]:[]};}
   function decode(raw,today=Core.todayISO()){
     if(!raw)return defaults();const input=typeof raw==='string'?JSON.parse(raw):raw;
     if(!input||typeof input!=='object'||Array.isArray(input))throw Error('记录格式无法读取');
@@ -28,11 +28,12 @@
       const raw=storage.getItem(KEY);if(expected!==undefined&&raw!==expected)throw Error('记录已在另一处更新，请重新打开表单后再保存。');
       const next=decode(raw,today());mutator(next);next.periods=Periods.validatePeriods(next.periods,today());next.starts=next.periods.map(p=>p.start);next.memory=Memory.normalize(next.memory);Memory.active(next.memory,today(),today());next.revision+=1;next.version=3;
       if(raw&&!Object.hasOwn(JSON.parse(raw),'periods')&&!storage.getItem(BACKUP))storage.setItem(BACKUP,raw);
+      if(raw&&JSON.parse(raw).memory?.version===1&&!storage.getItem(MEMORY_BACKUP))storage.setItem(MEMORY_BACKUP,raw);
       storage.setItem(KEY,JSON.stringify(next));value=next;original=JSON.stringify(next);notify();return next;
     }
-    function replace(data){const next=decode(data,today());const raw=storage.getItem(KEY);storage.setItem(IMPORT,JSON.stringify({raw}));next.revision=Math.max(next.revision,value.revision)+1;storage.setItem(KEY,JSON.stringify(next));reload();notify();}
-    function restore(){const backup=JSON.parse(storage.getItem(IMPORT));if(!backup||!(backup.raw===null||typeof backup.raw==='string'))throw Error('没有可恢复的备份');if(backup.raw===null)storage.removeItem(KEY);else storage.setItem(KEY,backup.raw);reload();notify();}
-    return {get:()=>value,error:()=>error,token:()=>storage.getItem(KEY),original:()=>original,update,replace,restore,reload:()=>{reload();notify();},subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn);},clear:()=>{for(const k of[KEY,BACKUP,IMPORT])storage.removeItem(k);reload();notify();},backups:()=>({legacyBackup:storage.getItem(BACKUP),preImportBackup:storage.getItem(IMPORT)})};
+    function replace(data){const next=decode(data,today());next.memory=Memory.reconcileImport(next.memory,value.memory);const raw=storage.getItem(KEY);storage.setItem(IMPORT,JSON.stringify({raw}));next.revision=Math.max(next.revision,value.revision)+1;storage.setItem(KEY,JSON.stringify(next));reload();notify();}
+    function restore(){const backup=JSON.parse(storage.getItem(IMPORT));if(!backup||!(backup.raw===null||typeof backup.raw==='string'))throw Error('没有可恢复的备份');const restored=decode(backup.raw,today());restored.memory=Memory.reconcileImport(restored.memory,value.memory);storage.setItem(KEY,JSON.stringify(restored));reload();notify();}
+    return {get:()=>value,error:()=>error,token:()=>storage.getItem(KEY),original:()=>original,update,replace,restore,reload:()=>{reload();notify();},subscribe:fn=>{listeners.add(fn);return()=>listeners.delete(fn);},clear:()=>{for(const k of[KEY,BACKUP,IMPORT,MEMORY_BACKUP])storage.removeItem(k);reload();notify();},backups:()=>({legacyBackup:storage.getItem(BACKUP),preImportBackup:storage.getItem(IMPORT),memoryMigrationBackup:storage.getItem(MEMORY_BACKUP)})};
   }
-  return {KEY,BACKUP,IMPORT,defaults,entry,decode,create};
+  return {KEY,BACKUP,IMPORT,MEMORY_BACKUP,defaults,entry,decode,create};
 });

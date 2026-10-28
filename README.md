@@ -42,7 +42,7 @@
 
 浏览器向同源 `/api/day` 发送用户确认的白名单资料，服务端验证、重算日期和文化符号、选取已核对文章，再转发至固定的 OpenAI 接口。API Key 仅用于请求头，应用不记录请求体或 Key；使用 `store:false`，不承诺托管平台或 OpenAI 零保留。
 
-已确认长期记忆作为标明为数据的 JSON 附加到系统提示词；当天明确表达优先。提取候选与正式采用分开，候选、过期和停用条目不进入建议上下文。设置中可核对原句、修改、替换、删除、关闭使用，或单独从已有记录提取。自动提取随正常回答完成，不另发请求；批量提取另需确认并调用一次 API。详见[长期记忆的数据与规则](docs/LONG-TERM-MEMORY.md)。
+按问题选择的已确认长期/短期记忆作为 JSON 数据附加到系统提示词；当天明确表达优先。提取候选与正式采用分开，待复核报告标明先确认。设置支持原句、有效期与复核日、更正、记录变化、停止使用与清理来源，或单独从已有记录提取。自动提取随正常回答完成，不另发请求；批量提取另需确认并调用一次 API。详见[长期记忆的数据与规则](docs/LONG-TERM-MEMORY.md)。
 
 昵称、城市不进入模型输入。生日仅在文化功能开启并由本人确认时用于服务端历法计算，模型获得干支/生肖等符号与口径说明，不获得原始生日。文字小记、明确偏好、当前问题和本日对话属于可发送资料，调用前有预览和同意选项。
 
@@ -80,7 +80,8 @@ npm run validate
 ```
 
 - `public/state.js`：兼容迁移、存储和变更通知。
-- `public/memory.js` / `memory-ui.js`：带原句的候选、确认与复核日期、系统记忆数据块及管理界面。
+- `public/memory.js` / `memory-ui.js`：长期/短期候选、独立复核与有效日期、按问题选择的系统记忆及版本管理界面。
+- `public/memory-privacy.js`：来源与派生会话清理、本机备份事务和导入防复活屏障。
 - `public/day-context.js`：前后端复用的日期上下文、签名、来源选择与文化符号。
 - `public/day-chat.js` / `day-sessions.js`：当天对话 UI 与按日期保存的会话。
 - `public/care-output.js`：前后端共用的行动与三餐格式校验，兼容历史记录。
@@ -101,3 +102,7 @@ npm run validate
 [书籍与营养核对](docs/BOOKS-NUTRITION-AUDIT.md) · [来源政策](docs/SOURCE-POLICY.md) · [经期资料](docs/HEALTH-SOURCE-AUDIT.md) · [中医资料](docs/TCM-SOURCE-AUDIT.md) · [文化资料](docs/CULTURE-SOURCE-AUDIT.md)
 
 代码使用 [MIT](LICENSE)，第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+### 4.3 个人记忆
+
+短期状态可跨日使用但保留原日期；复核日与实际截止日分开。按问题选择记忆与相关近期记录，选择变化时不沿用含其他背景的旧分析/话题。更正、记录变化、停止使用与删除各有明确行为，导入旧备份保留清理屏障。操作入口在设置的“她的记忆”，详细边界与测试见 [记忆说明](docs/LONG-TERM-MEMORY.md)。
