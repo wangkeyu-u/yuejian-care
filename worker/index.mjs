@@ -1,8 +1,11 @@
 import { createAnalyzer } from './ai.mjs';
-export function createSite({assets, Core, Periods, Forecast, Advice, catalog, fetchImpl}) {
+import { createDayAnalyzer } from './day-ai.mjs';
+export function createSite({assets, Core, Periods, Forecast, Advice, catalog, DayContext, fetchImpl}) {
   const analyzer=createAnalyzer({Core,Periods,Forecast,Advice,catalog,fetchImpl});
+  const daily=DayContext?createDayAnalyzer({DayContext,catalog,fetchImpl}):null;
   return {async fetch(request) {
     const url=new URL(request.url);
+    if(url.pathname==='/api/day') return daily?daily.analyze(request):new Response('Not configured',{status:503});
     if(url.pathname==='/api/analyze') return analyzer.analyze(request);
     if(!['GET','HEAD'].includes(request.method)) return new Response('Method not allowed',{status:405});
     const file=assets[url.pathname==='/'?'/index.html':url.pathname];

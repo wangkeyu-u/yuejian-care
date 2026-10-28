@@ -1,57 +1,9 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { filterArticles, recommendedIds } = require('../public/library-model.js');
-const health = require('../public/health-data.js').map(a => ({ ...a, kind: 'health' }));
-const tcm = require('../public/tcm-data.js').map(a => ({ ...a, kind: 'tcm' }));
-const culture = require('../public/culture-data.js').map(a => ({ ...a, kind: 'culture' }));
-const all = [...health, ...tcm, ...culture];
-
-test('culture stays hidden from search and saved items until explicitly enabled', () => {
-  const bookmarks = [culture[0].id, health[0].id];
-  assert.deepEqual(filterArticles(all, { kind: 'culture' }), []);
-  assert.deepEqual(filterArticles(all, { kind: 'saved', bookmarks }).map(a => a.id), [health[0].id]);
-  assert.equal(filterArticles(all, { kind: 'saved', bookmarks, cultureEnabled: true }).length, 2);
-});
-
-test('search handles Chinese spacing and case while combining category and bookmark filters', () => {
-  const rows = filterArticles(all, { query: 'pMdD', category: '情绪睡眠' });
-  assert(rows.some(a => a.id === 'health-pmdd'));
-  assert(rows.every(a => a.kind === 'health' && a.category === '情绪睡眠'));
-  assert(filterArticles(all, { query: '第 1 天' }).some(a => a.id === 'health-cycle-day-one'));
-  assert.equal(filterArticles(all, { kind: 'saved', query: '五行', bookmarks: ['culture-day-stem-not-bazi'] }).length, 0);
-  assert.equal(filterArticles(all, { query: '不存在的检索词xyz' }).length, 0);
-});
-
-test('daily knowledge recommendations respond to symptoms without using cultural attributes', () => {
-  assert.equal(recommendedIds({ pain: 8 })[0], 'health-urgent-pain');
-  assert.equal(recommendedIds({ mood: '紧绷' })[0], 'health-anxiety-cycle');
-  assert(!recommendedIds({ mood: '很难受' }).includes('health-pmdd'));
-  assert.equal(recommendedIds({ info: { phase: 'period', day: 1 } })[0], 'health-first-day');
-  assert.deepEqual(recommendedIds({ zodiac: '蛇', element: '火' }), recommendedIds({ zodiac: '马', element: '水' }));
-  for (const context of [{}, { pain: 10 }, { mood: '很难受' }, { info: { phase: 'late' } }]) {
-    assert(recommendedIds(context).every(id => health.some(a => a.id === id)));
-  }
-});
-
-test('published knowledge has distinct IDs, directly inspectable HTTPS sources, and readable content', () => {
-  assert.equal(new Set(all.map(a => a.id)).size, all.length);
-  for (const article of all) {
-    assert(article.title && article.summary && article.body.length >= 2, article.id);
-    assert(article.sources.length, article.id);
-    assert(article.sources.every(s => s.title && /^https:\/\//.test(s.url)), article.id);
-    assert(!article.body.some(p => /<script|javascript:/i.test(p)), article.id);
-  }
-});
-
-
-test('TCM is independently filterable without enabling culture and bookmarks keep source categories', () => {
-  const result = filterArticles(all, { kind: 'tcm' });
-  assert(result.length >= 1);
-  assert(result.every(a => a.kind === 'tcm'));
-  const bookmarks = [tcm[0].id, culture[0].id];
-  assert.deepEqual(filterArticles(all, { kind: 'saved', bookmarks }).map(a => a.id), [tcm[0].id]);
-});
-
+const test=require('node:test'),assert=require('node:assert/strict');
+const Catalog=require('../public/catalog.js'),all=Catalog.articles;
+test('all 48 articles can be found through a subject and a question scene',()=>{assert.equal(all.length,48);assert.equal(new Set(all.map(a=>a.id)).size,48);for(const a of all){assert(a.subjects.length);assert(Catalog.scenes.includes(a.scene));assert(Catalog.filter({subject:a.subjects[0],scene:a.scene}).some(row=>row.id===a.id));}});
+test('psychological sleep content is available through both psychology and physical medicine',()=>{const psych=Catalog.filter({subject:'psychology'});assert.equal(psych.length,4);assert(psych.every(a=>a.subjects.includes('western')));assert(Catalog.filter({subject:'tcm'}).every(a=>a.id.startsWith('tcm-')));assert.equal(Catalog.filter({subject:'culture'}).length,18);});
+test('search, scene and saved filters combine without mixing evidence labels',()=>{assert(Catalog.filter({query:'pMdD',subject:'psychology'}).some(a=>a.id==='health-pmdd'));assert(Catalog.filter({query:'第 1 天'}).some(a=>a.id==='health-cycle-day-one'));assert.equal(Catalog.filter({saved:true,bookmarks:['tcm-pain-language'],subject:'tcm'}).length,1);assert.equal(Catalog.filter({query:'not-found-xyz'}).length,0);});
+test('all knowledge keeps inspectable HTTPS sources and its own evidence basis',()=>{for(const a of all){assert(a.body.length>=2);assert(a.sources.length);assert(a.sources.every(s=>s.title&&/^https:\/\//.test(s.url)));assert(['clinical','traditional','editorial','mixed'].includes(a.verification.basis));}});
 test('every published paragraph has a traceable source mapping or a declared editorial context', () => {
   for (const article of all) {
     const verification = article.verification;

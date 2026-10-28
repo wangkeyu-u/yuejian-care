@@ -1,94 +1,18 @@
-const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const {JSDOM}=require('jsdom');
-const KEY='yuejian.personal.v1',root=path.resolve(__dirname,'../public');
-const period=(id,start,end)=>({id,start,end:end||null,status:end?'ended':'unknown'});
-const fixture=()=>({version:2,periods:[period('p','2026-10-20','2026-10-24')],cycleLength:28,periodLength:5,entries:{'2026-10-25':{mood:'平静',pain:2,energy:'medium',support:'',note:'fixed-date-note'}}});
-function app(data=fixture(),fetchImpl=async()=>{throw Error('network disabled in test')},library=null){
- const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'https://yuejian.test/#today',runScripts:'outside-only'}),w=dom.window;
- const RealDate=Date;w.Date=class extends RealDate{constructor(...args){super(...(args.length?args:['2026-10-26T04:00:00Z']));}static now(){return new RealDate('2026-10-26T04:00:00Z').getTime();}};
- w.structuredClone=structuredClone;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.AbortController=AbortController;w.fetch=fetchImpl;
- w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
- if(data!==null)w.localStorage.setItem(KEY,typeof data==='string'?data:JSON.stringify(data));
- if(library!==null)w.localStorage.setItem('yuejian.library.v1',library);
- for(const script of [...w.document.querySelectorAll('script[src]')])w.eval(fs.readFileSync(path.join(root,script.getAttribute('src').split('?')[0]),'utf8'));
- return {dom,w,$:s=>w.document.querySelector(s),raw:()=>w.localStorage.getItem(KEY),close:()=>w.close()};
-}
-function change(a,selector,value){a.$(selector).value=value;a.$(selector).dispatchEvent(new a.w.Event('change',{bubbles:true}));}
-function submit(a,selector){a.$(selector).dispatchEvent(new a.w.Event('submit',{bubbles:true,cancelable:true}));}
-function edit(a,start,end){a.$('#edit-current-period').click();change(a,'#period-date',start);change(a,'#period-status','ended');change(a,'#period-end',end);submit(a,'#period-form');}
-test('real app edits start/end, realigns calendar and forecast, preserves journal dates and reloads',()=>{
- const a=app();try{
-  assert.match(a.$('#next-period').textContent,/11 月 17/);edit(a,'2026-10-18','2026-10-22');
-  assert.equal(a.$('#period-dialog').open,false);assert.match(a.$('#next-period').textContent,/11 月 15/);assert.match(a.$('#selected-day-label').textContent,/今天.*26/);
-  assert.match(a.$('[data-date="2026-10-18"]').textContent,/开始/);assert.match(a.$('[data-date="2026-10-22"]').textContent,/结束/);assert.match(a.$('#period-length-display').textContent,/5/);
-  assert.match(a.$('#journal-list').textContent,/10 月 25.*周期第 8 天/s);assert.match(a.$('#journal-list').textContent,/fixed-date-note/);
-  edit(a,'2026-10-18','2026-10-24');assert.match(a.$('#next-period').textContent,/11 月 15/);assert.match(a.$('#period-length-display').textContent,/7/);
-  const reloaded=app(a.raw());try{assert.equal(reloaded.$('#next-period').textContent,a.$('#next-period').textContent);assert.match(reloaded.$('#journal-list').textContent,/fixed-date-note/);}finally{reloaded.close();}
- }finally{a.close();}
-});
-test('history-based next date, calendar first predicted day and editor preview use the same calculation',()=>{
- const data=fixture();data.periods=[period('a','2026-08-01','2026-08-05'),period('b','2026-08-29','2026-09-02'),period('c','2026-09-28','2026-10-02')];const a=app(data);try{
-  assert.match(a.$('#next-period').textContent,/10 月 27/);assert.match(a.$('[data-date="2026-10-27"]').textContent,/预计/);
-  a.$('#edit-current-period').click();change(a,'#period-date','2026-09-29');assert.match(a.$('#period-preview').textContent,/10 月 29/);submit(a,'#period-form');
-  assert.match(a.$('#next-period').textContent,/10 月 29/);assert.match(a.$('#forecast-date').textContent,/10 月 29/);assert.match(a.$('[data-date="2026-10-29"]').textContent,/预计/);
- }finally{a.close();}
-});
-test('a second page update refreshes the view and a stale editor cannot overwrite it',()=>{
- const a=app(),b=app();try{
-  a.$('#edit-current-period').click();edit(b,'2026-10-19','2026-10-24');const latest=b.raw();a.w.localStorage.setItem(KEY,latest);a.w.dispatchEvent(new a.w.StorageEvent('storage',{key:KEY,newValue:latest}));
-  assert.match(a.$('#next-period').textContent,/11 月 16/);change(a,'#period-date','2026-10-17');submit(a,'#period-form');assert.match(a.$('#period-error').textContent,/另一处更新/);assert.equal(a.raw(),latest);
- }finally{a.close();b.close();}
-});
-test('failed writes and invalid ranges keep the saved records and prediction unchanged',()=>{
- const a=app();try{
-  const before=a.raw();a.$('#edit-current-period').click();change(a,'#period-end','2026-10-19');submit(a,'#period-form');assert.equal(a.raw(),before);assert.match(a.$('#period-error').textContent,/不能早于/);
-  change(a,'#period-date','2026-10-18');change(a,'#period-end','2026-10-24');const original=a.w.Storage.prototype.setItem;a.w.Storage.prototype.setItem=function(key,value){if(key===KEY)throw new Error('quota');return original.call(this,key,value);};submit(a,'#period-form');assert.equal(a.raw(),before);assert.match(a.$('#next-period').textContent,/11 月 17/);
- }finally{a.close();}
-});
-test('AI key is not persisted or sent before confirmation, and changing a date rejects stale analysis',async()=>{
- let calls=0,resolveRequest;const a=app(fixture(),async()=>{calls++;return new Promise(resolve=>{resolveRequest=resolve;});});try{
-  a.$('#ai-open').click();change(a,'#ai-key','synthetic_only_secret_123456789');submit(a,'#ai-form');assert.equal(calls,0);assert.match(a.$('#ai-status').textContent,/确认发送/);a.$('#ai-consent').checked=true;submit(a,'#ai-form');assert.equal(calls,1);assert.equal(a.$('#ai-key').value,'');assert(!a.raw().includes('synthetic_only_secret'));
-  a.$('#ai-dialog').close();edit(a,'2026-10-18','2026-10-24');resolveRequest({ok:true,json:async()=>({model:'gpt-4.1-mini',analysis:{summary:'stale result',cycleExplanation:'stale',actions:[],uncertainty:'stale'}})});await new Promise(resolve=>setImmediate(resolve));assert.equal(a.$('#ai-result').hidden,true);assert(!a.$('#ai-result').textContent.includes('stale result'));
- }finally{a.close();}
-});
-test('old starts migrate without guessed end and extra observations survive save and reload',()=>{
- const a=app({starts:['2026-10-20'],cycleLength:28,entries:fixture().entries});try{
-  assert.match(a.$('#period-length-display').textContent,/待确认/);change(a,'#sleep','poor');change(a,'#flow','heavy');a.$('[data-care-topic="herbal"]').checked=true;submit(a,'#checkin-form');assert(a.w.localStorage.getItem('yuejian.personal.pre-periods-v2'));
-  const state=JSON.parse(a.raw());assert.equal(state.periods[0].end,null);const b=app(a.raw());try{assert.equal(b.$('#sleep').value,'poor');assert.equal(b.$('#flow').value,'heavy');assert.equal(b.$('[data-care-topic="herbal"]').checked,true);assert.equal(b.$('.advice-priorities article').dataset.adviceId,'medical-first');}finally{b.close();}
- }finally{a.close();}
-});
-test('backup import previews before replacement, realigns dates and can restore original data',async()=>{
- const a=app();try{
-  const original=a.raw(),data=fixture();data.periods=[period('imported','2026-10-10','2026-10-14')];
-  Object.defineProperty(a.$('#import-file'),'files',{configurable:true,value:[{size:500,text:async()=>JSON.stringify(data)}]});a.$('#import-file').dispatchEvent(new a.w.Event('change'));await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(a.raw(),original);assert.equal(a.$('#import-confirm').hidden,false);assert.match(a.$('#import-preview').textContent,/1 次经期/);
-  a.$('#import-confirm').click();assert.equal(JSON.parse(a.raw()).periods[0].start,'2026-10-10');assert.match(a.$('#next-period').textContent,/11 月 7/);assert.match(a.$('#journal-list').textContent,/fixed-date-note/);
-  assert.equal(JSON.parse(a.w.localStorage.getItem('yuejian.pre-import.v1')).raw,original);a.$('#import-restore').click();assert.equal(a.raw(),original);assert.match(a.$('#next-period').textContent,/11 月 17/);
- }finally{a.close();}
-});
-test('invalid or oversized backup cannot replace current records',async()=>{
- const a=app();try{
-  const original=a.raw();for(const file of [{size:1,text:async()=>'{broken'},{size:3*1024*1024,text:async()=>JSON.stringify(fixture())},{size:20,text:async()=>JSON.stringify({periods:[period('bad','2026-10-24','2026-10-20')]})}]){
-   Object.defineProperty(a.$('#import-file'),'files',{configurable:true,value:[file]});a.$('#import-file').dispatchEvent(new a.w.Event('change'));await new Promise(resolve=>setImmediate(resolve));assert.equal(a.$('#import-confirm').hidden,true);a.$('#import-confirm').click();assert.equal(a.raw(),original);
-  }
- }finally{a.close();}
-});
-
-test('the plan, knowledge bridge and article application use the same live observations',()=>{
- const a=app();try{
-  change(a,'#pain','5');change(a,'#sleep','poor');a.$('[data-support="独处"]').click();
-  assert.match(a.$('#companion-guide .day-plan-summary').textContent,/今晚提前收尾.*独处/);
-  assert.equal(a.$('#knowledge-plan-bridge .bridge-summary').textContent,a.$('#companion-guide .day-plan-summary').textContent);
-  a.$('#daily-reading-list [data-read-article="tcm-diet-conditions"]').click();
-  assert.match(a.$('.article-application').textContent,/已用于.*一餐/);
-  a.$('.article-application [data-show-advice]').click();assert.equal(a.$('#view-today').hidden,false);assert.equal(a.$('#article-dialog').open,false);
- }finally{a.close();}
-});
-
-test('a selected cultural ritual appears in the care plan immediately and survives reload',()=>{
- const a=app();try{
-  a.$('#culture-entry').click();a.$('[data-library-kind="culture"]').click();a.$('[data-ritual-element="金"]').click();a.$('[data-ritual-option="1"][data-element="金"]').click();
-  assert.match(a.$('#companion-guide .day-culture').textContent,/读几页熟悉的书/);
-  const b=app(a.raw(),undefined,a.w.localStorage.getItem('yuejian.library.v1'));try{assert.match(b.$('#companion-guide .day-culture').textContent,/读几页熟悉的书/);}finally{b.close();}
-  a.$('[data-ritual-clear]').click();assert(!a.$('#companion-guide .day-culture').textContent.includes('可选生活灵感：“读几页熟悉的书”'));
- }finally{a.close();}
-});
+const test=require('node:test'),assert=require('node:assert/strict');const {app,fixture,change,submit,tick,mockAI,analysis,KEY,today}=require('./helpers.cjs');
+const setKey=a=>{change(a,'#api-key','synthetic_only_key_1234567890');submit(a,'#api-form');};
+const open=a=>a.$('#open-today').click();
+const edit=(a,start,end)=>{a.$('[data-edit-period="p"]').click();change(a,'#period-date',start);change(a,'#period-status','ended');change(a,'#period-end',end);submit(a,'#period-form');};
+test('navigation has exactly three modules; old journal and today links migrate to working views',()=>{for(const [hash,view]of [['journal','settings'],['today','calendar'],['about','settings']]){const a=app({hash});try{assert.deepEqual([...a.w.document.querySelectorAll('[data-view]')].map(x=>x.dataset.view),['calendar','knowledge','settings']);assert.equal(a.$('#view-'+view).hidden,false);}finally{a.close();}}});
+test('settings edit actual start and end, realign calendar and forecast, preserve notes and survive reload',()=>{const a=app();try{assert.match(a.$('#next-period').textContent,/11 月 17/);edit(a,'2026-10-18','2026-10-22');assert.match(a.$('#next-period').textContent,/11 月 15/);assert.match(a.$('[data-date="2026-10-18"]').textContent,/开始/);assert.match(a.$('[data-date="2026-10-22"]').textContent,/结束/);assert.equal(JSON.parse(a.raw()).entries['2026-10-25'].note,'fixed-date-note');edit(a,'2026-10-18','2026-10-24');assert.match(a.$('#next-period').textContent,/11 月 15/);const b=app({data:a.raw()});try{assert.equal(b.$('#next-period').textContent,a.$('#next-period').textContent);}finally{b.close();}}finally{a.close();}});
+test('opening a date provides four empty AI sections and never automatically calls the API',()=>{let calls=0;const a=app({fetchImpl:async()=>{calls++;}});try{open(a);assert.equal(a.$('#day-dialog').open,true);assert.equal(a.w.document.querySelectorAll('[data-analysis-kind]').length,4);assert.match(a.$('#day-analysis-status').textContent,/尚未生成/);assert.equal(calls,0);assert.equal(a.$('#day-send').disabled,true);}finally{a.close();}});
+test('saved API key is separate from personal data, persists only in the chosen tab session',()=>{const a=app();try{setKey(a);assert(!a.raw().includes('synthetic_only'));assert.equal(a.$('#api-key').value,'');assert.match(a.w.sessionStorage.getItem('yuejian.ai.session.v1'),/synthetic_only/);a.$('#api-clear').click();assert.equal(a.w.sessionStorage.getItem('yuejian.ai.session.v1'),null);}finally{a.close();}});
+test('analysis and follow-up use only the selected day, persist and return on reload',async()=>{const log=[],a=app({fetchImpl:mockAI(log)});try{setKey(a);open(a);a.$('#day-generate').click();await tick();assert.equal(log.length,0);a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();await tick();assert.equal(log.length,1);assert.equal(log[0].p.mode,'analysis');assert.equal(log[0].p.date,today);assert.equal(a.$('#day-send').disabled,false);change(a,'#day-question','她想独处，怎么办？');submit(a,'#day-chat-form');await tick();assert.equal(log.length,2);assert.equal(log[1].p.mode,'chat');assert.equal(log[1].p.analysis.sections.length,4);assert.match(a.$('#day-messages').textContent,/针对这一天/);a.$('#day-next').click();assert.match(a.$('#day-analysis-status').textContent,/尚未生成/);assert.equal(a.$('#day-messages').textContent,'');a.$('#day-prev').click();assert.match(a.$('#day-messages').textContent,/针对这一天/);const b=app({data:a.raw(),extra:{'yuejian.days.v1':a.w.localStorage.getItem('yuejian.days.v1')}});try{open(b);assert.match(b.$('#day-analysis-status').textContent,/已由 AI 生成/);assert.match(b.$('#day-messages').textContent,/针对这一天/);}finally{b.close();}}finally{a.close();}});
+test('saving daily observations invalidates analysis and blocks chat until regeneration',async()=>{const a=app({fetchImpl:mockAI()});try{setKey(a);open(a);a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();await tick();change(a,'#day-pain','5');assert.match(a.$('#day-record-status').textContent,/未保存/);submit(a,'#day-record-form');assert.equal(JSON.parse(a.raw()).entries[today].pain,5);assert.match(a.$('#day-analysis-status').textContent,/过期/);assert.equal(a.$('#day-send').disabled,true);assert.equal(a.$('#day-ai-consent').checked,false);}finally{a.close();}});
+test('settings changes refresh the open day immediately and discard a delayed response',async()=>{let resolve;const a=app({fetchImpl:async()=>new Promise(r=>{resolve=r;})});try{setKey(a);open(a);a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();change(a,'#setting-cycle','30');submit(a,'#cycle-form');assert.match(a.$('#next-period').textContent,/11 月 19/);resolve({ok:true,json:async()=>({analysis:analysis(),signature:'stale',model:'gpt-4.1-mini',generatedAt:''})});await tick();assert.equal(a.w.localStorage.getItem('yuejian.days.v1'),null);assert.equal(a.$('#day-ai-consent').checked,false);}finally{a.close();}});
+test('invalid ranges and failed writes leave actual records unchanged',()=>{const a=app();try{const before=a.raw();a.$('[data-edit-period="p"]').click();change(a,'#period-end','2026-10-19');submit(a,'#period-form');assert.equal(a.raw(),before);assert.match(a.$('#period-error').textContent,/不能早于/);change(a,'#period-end','2026-10-24');const original=a.w.Storage.prototype.setItem;a.w.Storage.prototype.setItem=function(k,v){if(k===KEY)throw Error('quota');return original.call(this,k,v);};submit(a,'#period-form');assert.equal(a.raw(),before);}finally{a.close();}});
+test('another tab refreshes dates and a stale editor cannot overwrite the newer data',()=>{const a=app(),b=app();try{a.$('[data-edit-period="p"]').click();edit(b,'2026-10-19','2026-10-24');a.w.localStorage.setItem(KEY,b.raw());a.w.dispatchEvent(new a.w.StorageEvent('storage',{key:KEY,newValue:b.raw()}));assert.match(a.$('#next-period').textContent,/11 月 16/);change(a,'#period-date','2026-10-17');submit(a,'#period-form');assert.match(a.$('#period-error').textContent,/另一处更新/);assert.equal(a.raw(),b.raw());}finally{a.close();b.close();}});
+test('legacy starts migrate without inventing end dates and damaged records stay protected',()=>{const a=app({data:{starts:['2026-10-20'],entries:fixture().entries}}),b=app({data:'{broken'});try{change(a,'#setting-cycle','29');submit(a,'#cycle-form');assert.equal(JSON.parse(a.raw()).periods[0].end,null);assert(a.w.localStorage.getItem('yuejian.personal.pre-periods-v2'));change(b,'#setting-cycle','29');submit(b,'#cycle-form');assert.equal(b.raw(),'{broken');assert.equal(b.$('#data-notice').hidden,false);}finally{a.close();b.close();}});
+test('backup import previews replacement and restores periods plus date-specific analysis',async()=>{const a=app();try{const original=a.raw(),data=fixture();data.periods[0].start='2026-10-10';data.periods[0].end='2026-10-14';Object.defineProperty(a.$('#import-file'),'files',{configurable:true,value:[{size:400,text:async()=>JSON.stringify(data)}]});a.$('#import-file').dispatchEvent(new a.w.Event('change'));await tick();assert.equal(a.raw(),original);a.$('#import-confirm').click();assert.match(a.$('#next-period').textContent,/11 月 7/);a.$('#import-restore').click();assert.equal(a.raw(),original);assert.match(a.$('#next-period').textContent,/11 月 17/);}finally{a.close();}});
+test('future dates cannot save symptoms and encyclopaedia can focus a question without an API request',()=>{const a=app();try{a.$('[data-date="2026-10-29"]').click();assert.equal(a.$('#day-record-form button').disabled,true);a.$('[data-close="day-dialog"]').click();a.$('[data-read-article]').click();a.$('#article-ask-day').click();assert.equal(a.$('#day-dialog').open,true);assert.match(a.$('#day-question').value,/结合《/);assert.match(a.$('#day-analysis-status').textContent,/尚未生成/);}finally{a.close();}});
+test('switching dates during an AI request cannot attach the old response to the new day',async()=>{let resolve;const a=app({fetchImpl:async()=>new Promise(r=>{resolve=r;})});try{setKey(a);open(a);a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();a.$('#day-next').click();resolve({ok:true,json:async()=>({analysis:analysis(),signature:'old',model:'gpt-4.1-mini',generatedAt:''})});await tick();assert.equal(a.w.localStorage.getItem('yuejian.days.v1'),null);assert.match(a.$('#day-title').textContent,/29/);assert.match(a.$('#day-analysis-status').textContent,/尚未生成/);}finally{a.close();}});
+test('AI text is escaped and a corrupt analysis store is not overwritten',async()=>{const unsafe=analysis();unsafe.sections[0].body='<img src=x onerror=alert(1)>';const a=app({fetchImpl:async(url,opt)=>({ok:true,json:async()=>({analysis:unsafe,signature:JSON.parse(opt.body).signature,model:'gpt-4.1-mini',generatedAt:today+'T04:00:00Z'})})}),b=app({extra:{'yuejian.days.v1':'{broken'}});try{setKey(a);open(a);a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();await tick();assert.equal(a.$('#day-analysis img'),null);assert.match(a.$('#day-analysis').textContent,/<img/);setKey(b);open(b);b.$('#day-ai-consent').checked=true;b.$('#day-generate').click();await tick();assert.equal(b.w.localStorage.getItem('yuejian.days.v1'),'{broken');assert.match(b.$('#day-request-status').textContent,/无法读取/);}finally{a.close();b.close();}});

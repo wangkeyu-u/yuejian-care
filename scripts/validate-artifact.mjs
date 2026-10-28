@@ -27,12 +27,13 @@ const home = await site.fetch(new Request('https://validate.test/'));
 assert.equal(home.status, 200);
 assert.match(home.headers.get('Content-Security-Policy'), /connect-src 'self'/);
 const html = await home.text();
-assert.match(html, /id="ai-dialog"/);
-assert.match(html, /id="forecast-date"/);
+assert.match(html, /id="day-dialog"/);
+assert.match(html, /id="day-analysis"/);
 for (const match of html.matchAll(/(?:src|href)="([^"#]+\.(?:js|css)(?:\?[^\"]*)?)"/g)) {
   const response = await site.fetch(new Request(new URL(match[1], 'https://validate.test/')));
   assert.equal(response.status, 200, `Missing asset: ${match[1]}`);
 }
 assert.equal((await site.fetch(new Request('https://validate.test/PERSONAL-PROFILE.md'))).status,404);
 assert.equal((await site.fetch(new Request('https://validate.test/api/analyze',{method:'POST',headers:{Origin:'https://validate.test','Content-Type':'application/json'},body:'{}'}))).status,401);
+assert.equal((await site.fetch(new Request('https://validate.test/api/day',{method:'POST',headers:{Origin:'https://validate.test','Content-Type':'application/json'},body:'{}'}))).status,401);
 console.log("Artifact exports default.fetch; page, assets, CSP and AI route checks passed.");
