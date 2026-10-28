@@ -8,7 +8,7 @@
   function session(){try{return api.sessions.get(date);}catch(error){$('#day-request-status').textContent=error.message;return null;}}
   function references(ids){return (ids||[]).filter(id=>api.catalog.some(a=>a.id===id)).map(id=>`<button class="small-link" data-read-article="${esc(id)}">${esc(api.catalog.find(a=>a.id===id).title)} ↗</button>`).join('');}
   function context(){return window.MoonDayContext.build(input(),api.catalog);}
-  function preview(){if(!date)return;const current=session(),valid=current?.signature===signature();$('#day-data-preview').textContent=JSON.stringify({day:input(),analysisForFollowUp:valid?current.analysis:null,historyForFollowUp:valid?(current.messages||[]).slice(-12).map(m=>({role:m.role,content:m.content})):[],questionForFollowUp:$('#day-question').value,focusArticleId,sendingRule:'重新生成只发送当天资料与相关知识；追问另带最新四块分析、最近6轮消息及当前问题。Key 不在此内容中。'},null,2);}
+  function preview(){if(!date)return;const current=session(),valid=current?.signature===signature();try{const prepared=window.MoonAI.preparePayload({...input(),mode:valid?'chat':'analysis',consent:true,signature:signature(),history:valid?(current.messages||[]).slice(-12).map(m=>({role:m.role,content:m.content})):[],analysis:valid?current.analysis:undefined,question:valid?$('#day-question').value:'',focusArticleId});$('#day-data-preview').textContent=JSON.stringify({preparedRequest:prepared,systemMemory:window.MoonMemory.promptBlock(input().memory),sendingRule:'重新生成只发送当天资料与相关知识；追问另带最新四块分析、最近最多6轮消息及当前问题，较长时减少早期轮次。Key 不在此内容中。'},null,2);}catch(error){$('#day-data-preview').textContent=error.message;}}
 
   function status(message){lastError=message;$('#day-request-status').textContent=message;$('#day-analysis-status').textContent=message;}
   function abort(message=''){lastError='';run++;controller?.abort();controller=null;busy=false;$('#day-cancel').hidden=true;$('#day-request-status').textContent=message;}
@@ -22,6 +22,7 @@
     for(const el of $('#day-record-form').elements)el.disabled=future||!!api.store.error();
     $('#day-medical').hidden=!currentContext.medicalPriority.length;$('#day-medical').textContent=currentContext.medicalPriority.map(a=>a.body).join(' ');
     $('#day-analysis-status').textContent=lastError?lastError:busy?'AI 正在整理当天资料…':stale?'已过期：记录或相关设置已变，请重新生成。':current?.analysis?`${current.imported?'导入的历史分析':'已由 AI 生成'} · ${current.model} · ${new Date(current.generatedAt).toLocaleString('zh-CN')} `:'尚未生成 AI 分析。先保存实际情况，再确认数据范围。';
+    const pending=api.store.get().memory.items.filter(x=>x.status==='pending').length;$('#day-memory-status').innerHTML=`本次使用 ${currentContext.longTermMemory.items.length} 条已确认长期记忆${pending?' · '+pending+' 条候选待核对':''} <button class="small-link" data-go-settings>管理长期记忆 →</button>`;
     $('#day-key-link').hidden=!!api.vault.get();
     $('#day-generate').textContent=current?.analysis?'重新生成当天分析':'生成当天 AI 分析';$('#day-generate').disabled=busy;
     $('#day-analysis').classList.toggle('stale',stale);
@@ -46,7 +47,7 @@
     lastError='';
     const snapshot=activeSignature,requestDate=date,id=++run,expected=(()=>{try{return api.sessions.token(date);}catch{return undefined;}})();
     if(expected===undefined){$('#day-request-status').textContent='每日对话存储无法读取，请先导出原始备份。';return;}
-    const payload={...input(),mode,consent:true,signature:snapshot,question:mode==='chat'?question:'',focusArticleId,history:mode==='chat'?(s.messages||[]).slice(-12).map(m=>({role:m.role,content:m.content})):[],analysis:mode==='chat'?s.analysis:undefined};
+    let payload;try{payload=window.MoonAI.preparePayload({...input(),mode,consent:true,signature:snapshot,question:mode==='chat'?question:'',focusArticleId,history:mode==='chat'?(s.messages||[]).slice(-12).map(m=>({role:m.role,content:m.content})):[],analysis:mode==='chat'?s.analysis:undefined});}catch(error){status(error.message);return;}
     controller=new AbortController();busy=true;$('#day-request-status').textContent=mode==='analysis'?'正在生成四块分析…':'正在结合本日分析回答…';render();
     try{
       const data=await window.MoonAI.request(payload,key,controller.signal);
@@ -55,6 +56,7 @@
       if(mode==='analysis'){if(!data.analysis?.sections||data.analysis.sections.length!==4)throw Error('四块分析不完整，未保存。');next={signature:snapshot,analysis:data.analysis,messages:[],model:data.model,generatedAt:data.generatedAt,previous:s?.analysis?{analysis:s.analysis,messages:s.messages||[],generatedAt:s.generatedAt}:s?.previous||null};}
       else {if(typeof data.reply!=='string')throw Error('回答格式无效，未保存。');next={...s,messages:[...(s.messages||[]),{role:'user',content:question},{role:'assistant',content:data.reply+(data.uncertainty?'\n\n'+data.uncertainty:''),articleIds:data.articleIds||[]}]};}
       api.sessions.put(date,next,expected);if(mode==='chat')$('#day-question').value='';$('#day-request-status').textContent='已保存在这一天。';api.onSaved();
+      if(data.memoryCandidates?.length){try{const evidence=window.MoonMemory.dayEvidence(context(),payload.history,payload.question);const added=api.onMemoryCandidates(data.memoryCandidates,evidence);if(added)api.notify(`已提取 ${added} 条长期记忆候选，确认后才会跨日使用。`);}catch(error){status('回答已保存，但候选记忆未保存：'+error.message);}}
     }catch(error){if(id===run)status(error.name==='AbortError'?'请求已取消。':error.message);}
     finally{if(id===run){busy=false;controller=null;render();}}
   }

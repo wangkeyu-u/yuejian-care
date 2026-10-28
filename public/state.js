@@ -1,10 +1,10 @@
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'),require('./periods.js'));else root.MoonState=factory(root.MoonCore,root.MoonPeriods);})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Periods){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'),require('./periods.js'),require('./memory.js'));else root.MoonState=factory(root.MoonCore,root.MoonPeriods,root.MoonMemory);})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Periods,Memory){
   'use strict';
   const KEY='yuejian.personal.v1',BACKUP='yuejian.personal.pre-periods-v2',IMPORT='yuejian.pre-import.v1';
   const topics=['tcm','herbal','acupuncture','moxibustion','movement','products'];
   const text=(value,size)=>typeof value==='string'?value.trim().slice(0,size):'';
   const one=(value,values,fallback='')=>values.includes(value)?value:fallback;
-  const defaults=()=>({version:3,revision:0,periodRevision:0,periods:[],starts:[],cycleLength:28,periodLength:5,partner:{nickname:'',support:'ask',likes:'',avoid:'',consent:false},birthday:'',birthConfirmed:false,birthTime:'',city:'',culture:true,quiet:false,model:'gpt-4.1-mini',tone:'gentle',focus:[],entries:{},activities:[],tasks:{}});
+  const defaults=()=>({version:3,revision:0,periodRevision:0,periods:[],starts:[],cycleLength:28,periodLength:5,partner:{nickname:'',support:'ask',likes:'',avoid:'',consent:false},birthday:'',birthConfirmed:false,birthTime:'',city:'',culture:true,quiet:false,model:'gpt-4.1-mini',tone:'gentle',focus:[],memory:Memory.empty(),entries:{},activities:[],tasks:{}});
   function entry(raw={}){return {mood:one(raw.mood,['平静','紧绷','很难受']),pain:[0,2,5,8,10].includes(raw.pain)?raw.pain:null,energy:one(raw.energy,['low','medium','high']),sleep:one(raw.sleep,['poor','okay']),flow:one(raw.flow,['usual','heavy','unexpected']),support:one(raw.support,['独处','安静陪伴','具体帮助']),note:text(raw.note,500),topics:Array.isArray(raw.topics)?[...new Set(raw.topics.filter(x=>topics.includes(x)))]:[]};}
   function decode(raw,today=Core.todayISO()){
     if(!raw)return defaults();const input=typeof raw==='string'?JSON.parse(raw):raw;
@@ -16,7 +16,7 @@
     s.birthday=Core.isISODate(input.birthday)?input.birthday:'';s.birthConfirmed=input.birthConfirmed===true&&!!s.birthday;s.birthTime=/^([01]\d|2[0-3]):[0-5]\d$/.test(input.birthTime)?input.birthTime:'';s.city=text(input.city,40);
     s.culture=typeof input.culture==='boolean'?input.culture:true;s.quiet=input.quiet===true;s.model=/^gpt-[a-zA-Z0-9._-]{1,70}$/.test(input.model)?input.model:s.model;s.tone=one(input.tone,['brief','gentle','detailed'],'gentle');s.focus=Array.isArray(input.focus)?[...new Set(input.focus.filter(x=>topics.includes(x)))]:[];
     if(input.entries&&typeof input.entries==='object')for(const [date,value]of Object.entries(input.entries))if(Core.isISODate(date)&&date<=today&&value&&typeof value==='object')s.entries[date]=entry(value);
-    s.activities=Array.isArray(input.activities)?input.activities.filter(x=>typeof x==='string').slice(0,20):[];s.tasks=input.tasks&&typeof input.tasks==='object'?input.tasks:{};return s;
+    s.memory=Memory.normalize(input.memory);Memory.active(s.memory,today,today);s.activities=Array.isArray(input.activities)?input.activities.filter(x=>typeof x==='string').slice(0,20):[];s.tasks=input.tasks&&typeof input.tasks==='object'?input.tasks:{};return s;
   }
   function create(storage,{today=()=>Core.todayISO()}={}){
     let value,error=null,original=null;const listeners=new Set();
@@ -26,7 +26,7 @@
     function update(mutator,expected){
       if(error)throw Error('现有数据无法读取，已暂停写入；请先导出原始备份。');
       const raw=storage.getItem(KEY);if(expected!==undefined&&raw!==expected)throw Error('记录已在另一处更新，请重新打开表单后再保存。');
-      const next=decode(raw,today());mutator(next);next.periods=Periods.validatePeriods(next.periods,today());next.starts=next.periods.map(p=>p.start);next.revision+=1;next.version=3;
+      const next=decode(raw,today());mutator(next);next.periods=Periods.validatePeriods(next.periods,today());next.starts=next.periods.map(p=>p.start);next.memory=Memory.normalize(next.memory);Memory.active(next.memory,today(),today());next.revision+=1;next.version=3;
       if(raw&&!Object.hasOwn(JSON.parse(raw),'periods')&&!storage.getItem(BACKUP))storage.setItem(BACKUP,raw);
       storage.setItem(KEY,JSON.stringify(next));value=next;original=JSON.stringify(next);notify();return next;
     }
