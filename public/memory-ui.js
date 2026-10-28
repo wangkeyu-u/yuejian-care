@@ -1,5 +1,6 @@
 'use strict';
 (() => {
+  const I=window.MoonIcons.icon;
   const $=selector=>document.querySelector(selector),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const M=window.MoonMemory,C=window.MoonCore;let api,editing=null,editorToken='',busy=false,controller=null,requestId=0,requestSnapshot='';
   function evidence(){const sources=[],today=C.todayISO();for(const [date,e]of Object.entries(api.store.get().entries))if(date<=today&&e.note?.trim())sources.push({id:'note:'+date,date,kind:'note',text:e.note.trim().slice(0,500),order:10000});
@@ -14,7 +15,7 @@
     if(busy)try{if(snapshot()!==requestSnapshot)stop('来源或设置已经改变，已取消旧提取，请重新核对。');}catch{stop('来源无法读取，已取消提取，请先导出原始备份。');}
     $('#memory-enabled').checked=m.enabled;$('#memory-auto').checked=m.autoExtract;
     const active=M.active(m,today,today);$('#memory-count').textContent=`今天可使用 ${active.length} 条 · 待确认 ${pending.length} 条${m.enabled?'':' · 长期记忆使用已关闭'}`;
-    const row=item=>{const isPending=item.status==='pending',expired=!!item.until&&item.until<today;return `<article class="memory-row" data-memory-id="${esc(item.id)}"><div class="memory-row-top"><strong>${esc(M.categories[item.category])}</strong><span>${isPending?'候选 · 未使用':item.status==='archived'?'已停用':expired?'已过期':m.enabled?'已确认':'已确认 · 使用关闭'}</span></div><p>${esc(item.content)}</p><details><summary>来源与适用范围</summary><p class="fine muted">${esc(sourceLabel(item))} · 自 ${esc(item.since)} 起${item.until?'，复核截止 '+esc(item.until):'，未设截止日'}</p><blockquote>${esc(item.evidence.quote)}</blockquote></details><div class="button-row"><button class="small-link" data-memory-edit="${esc(item.id)}">${isPending?'核对并确认 →':'修改/重新采用'}</button><button class="small-link" data-memory-delete="${esc(item.id)}">${isPending?'不采用':'删除记忆'}</button></div></article>`;};
+    const row=item=>{const isPending=item.status==='pending',expired=!!item.until&&item.until<today;return `<article class="memory-row" data-memory-id="${esc(item.id)}"><div class="memory-row-top"><strong>${esc(M.categories[item.category])}</strong><span>${isPending?'候选 · 未使用':item.status==='archived'?'已停用':expired?'已过期':m.enabled?'已确认':'已确认 · 使用关闭'}</span></div><p>${esc(item.content)}</p><details><summary>来源与适用范围</summary><p class="fine muted">${esc(sourceLabel(item))} · 自 ${esc(item.since)} 起${item.until?'，复核截止 '+esc(item.until):'，未设截止日'}</p><blockquote>${esc(item.evidence.quote)}</blockquote></details><div class="button-row"><button class="small-link" data-memory-edit="${esc(item.id)}">${isPending?'核对并确认':'修改/重新采用'}${isPending?I('arrowRight'):''}</button><button class="small-link" data-memory-delete="${esc(item.id)}">${isPending?'不采用':'删除记忆'}</button></div></article>`;};
     $('#memory-pending-list').innerHTML=pending.length?pending.map(row).join(''):'<p class="fine muted">暂无候选。可从已有记录提取，或在后续 AI 对话中生成。</p>';
     $('#memory-confirmed-list').innerHTML=others.length?others.map(row).join(''):'<p class="fine muted">还没有已确认的长期记忆。</p>';
     $('#memory-system-preview').textContent=M.promptBlock(M.projected(m,today,today));
