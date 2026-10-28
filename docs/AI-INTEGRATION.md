@@ -2,7 +2,7 @@
 
 ## 接口与状态
 
-`POST /api/day` 接收 `mode: analysis | chat | memory`。前后端共同使用 `public/day-context.js` 清洗记录、构建签名和选择资料。服务端重新验证日期、实际经期与参考设置，不采信客户端传来的预测。
+`POST /api/day` 接收 `mode: analysis | chat | memory | signals`。前后端共同使用 `public/day-context.js` 清洗记录、构建签名和选择资料。服务端重新验证日期、实际经期与参考设置，不采信客户端传来的预测。
 
 analysis 返回四领域 sections（culture、tcm、western、psychology）、food、摘要与不确定性。每个领域需1至3条结构化行动 `{when,task,how,adjust}`；food 需早餐、午餐、晚餐各含 `{slot,foods,swap,prepare}`，并含行动、公开营养来源、依据与限制。chat 返回回答、结构化行动、资料 ID 和不确定性。客户端按日期保存，并用签名与请求序号检查响应是否仍对应当前记录；切换日期、保存相关设置或关闭框会取消旧请求。
 
@@ -45,3 +45,5 @@ API 测试使用模拟上游，不证明实际 Key 有权限或当前模型输�
 `makeInput(profile,date,model,question,mode,focus)` 在浏览器按主题选择记忆和近期记录，`retrievalKey` 决定可沿用的当前话题段。基础签名使用全集 `revisionToken` 和 `recentRevision`，不会因提问换子集而错误地使当天分析过期；确认、更正、停止使用、删除及相关源记录改变仍会立即使旧结果失效。服务端验证结构和当前基础签名；这些客户端指纹是并发一致性标记，不证明输入真实或医学正确。
 
 会话新增版本/根/来源依赖与 `privacyBlocks`，设置的隐私事务由 `memory-privacy.js` 统一提交并处理恢复屏障。详见 [以人为中心的记忆](LONG-TERM-MEMORY.md)。
+
+`signals` 模式只发送已同意的 `phaseEvidence` 片段，返回待人工核对的线索；不会返回可自动应用的阶段。普通分析由服务端重新构建 `phaseAssessment`，四领域与饮食围绕所选日期的阶段参考及实际情况展开；阶段不等于症状。见[CYCLE-PHASES.md](CYCLE-PHASES.md)。

@@ -29,7 +29,8 @@
   function showCategoryNote(){$('#memory-health-note').hidden=!['health_report','medication_report','allergy_report'].includes($('#memory-category').value);}
   function offer(candidates,sources){const valid=M.validateCandidates(candidates,sources);if(!valid.length)return 0;const result=M.mergeCandidates(api.store.get().memory,valid,C.todayISO());if(result.added)api.store.update(s=>{s.memory=result.memory;});return result.added;}
   function targets(id){const m=M.normalize(api.store.get().memory),x=m.items.find(x=>x.id===id);return x?m.items.filter(y=>y.rootId===x.rootId):[];}
-  function remove(id){try{const before=targets(id),afterMemory=M.forget(api.store.get().memory,id),options={afterMemory,targets:before,action:'delete',expectedToken:api.store.token()},plan=api.planMemory(options);deletion={preparedPlan:plan};$('#memory-delete-preview').textContent=`待删除：${before.find(x=>x.status==='confirmed')?.content||before[0]?.content||'条目'}。将删除 ${before.length} 个记忆版本；清理来源小记 ${plan.removedEntryDates.length} 天（${plan.removedEntryDates.join('、')||'无'}），相关分析/对话 ${plan.affectedDates.length} 天（${plan.affectedDates.join('、')||'无'}），并清空 ${plan.backupCount} 份本机自动备份。${plan.corruptDays?'每日对话存储无法读取，将整体清除该存储。':''}`;$('#memory-delete-error').textContent='';$('#memory-delete-dialog').showModal();}catch(error){api.notify(error.message);}}
+  function deletionPreview(before,afterMemory){try{const options={afterMemory,targets:before,action:'delete',expectedToken:api.store.token()},plan=api.planMemory(options);deletion={preparedPlan:plan};$('#memory-delete-preview').textContent=`待删除：${before.find(x=>x.status==='confirmed')?.content||before[0]?.content||'条目'}。本次将移除 ${plan.removedMemoryCount} 个关联记忆版本；清理来源小记 ${plan.removedEntryDates.length} 天（${plan.removedEntryDates.join('、')||'无'}），相关分析/对话 ${plan.affectedDates.length} 天（${plan.affectedDates.join('、')||'无'}），并清空 ${plan.backupCount} 份本机自动备份。${plan.corruptDays?'每日对话存储无法读取，将整体清除该存储。':''}${before.some(x=>x.evidence?.sourceId?.startsWith('signal:'))?' 已确认的实际经期记录会保留，请在设置中单独更正。':''}`;$('#memory-delete-error').textContent='';$('#memory-delete-dialog').showModal();}catch(error){api.notify(error.message);}}
+  function remove(id){deletionPreview(targets(id),M.forget(api.store.get().memory,id));}
   async function extract(){
     if(busy)return;const key=api.vault.get();if(!key){$('#memory-extract-status').textContent='请先在设置上方填写 API Key。';return;}if(!$('#memory-extract-consent').checked){$('#memory-extract-status').textContent='请展开发送范围，核对原句并确认发送。';return;}
     let sources;try{sources=evidence();}catch(error){$('#memory-extract-status').textContent=error.message;return;}if(!sources.length){$('#memory-extract-status').textContent='还没有可提取的文字记录或用户发言，可先手动添加。';return;}
@@ -48,5 +49,5 @@
       $('#memory-form').hidden=true;editing=null;api.notify('记忆已保存，相关 AI 上下文已刷新。');}catch(error){$('#memory-editor-status').textContent=error.message;}});
     $('#memory-extract').addEventListener('click',extract);$('#memory-extract-cancel').addEventListener('click',()=>stop('提取已取消，已有记忆不变。'));render();
   }
-  window.MoonMemoryUI={init,refresh:render,offer,evidence,cancel:stop};
+  window.MoonMemoryUI={init,refresh:render,offer,evidence,cancel:stop,deleteSources:before=>deletionPreview(before,M.normalize(api.store.get().memory))};
 })();

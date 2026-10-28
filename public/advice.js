@@ -20,7 +20,7 @@
   const knownIds = new Set(articles.map(article => article.id));
   const SUPPORTED_TOPICS = ['tcm', 'herbal', 'acupuncture', 'moxibustion', 'movement', 'products'];
   const RULES = [
-    { id: 'phase-unknown', when: '没有实际周期记录；先记录本人确认的日期，不猜月经或症状', articleIds: ['health-cycle-day-one', 'health-bleeding-days'] },
+    { id: 'phase-unknown', when: '没有实际周期记录；先记录本人确认的日期，不猜月经或症状', articleIds: ['health-cycle-day-one', 'health-bleeding-days', 'health-cycle-four-phases', 'health-phase-signals'] },
     { id: 'phase-before', when: '日期距预计下次开始日0–7天；只安排有弹性的准备', articleIds: ['health-pms', 'health-first-day', 'health-products'] },
     { id: 'phase-during', when: '实际出血或尚未结束；以当前疼痛和精力调整安排', articleIds: ['health-first-day', 'health-cramps', 'health-heat-bath', 'health-bleeding-days'] },
     { id: 'phase-reference', when: '仅有参考出血窗口或结束日未知；不把窗口当实际出血', articleIds: ['health-cycle-day-one', 'health-first-day', 'health-products'] },

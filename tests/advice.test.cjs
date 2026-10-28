@@ -25,7 +25,7 @@ test('exports a deterministic Node API and browser UMD API without mutating cont
   const snapshot = structuredClone(input);
   assert.deepEqual(Advice.buildPlan(input), Advice.buildPlan(input));
   assert.deepEqual(input, snapshot);
-  assert.equal(sandbox.MoonAdvice.buildPlan(input).consideredCount, 48);
+  assert.equal(sandbox.MoonAdvice.buildPlan(input).consideredCount, 50);
 });
 
 test('changes concrete arrangements across unknown, pre-period, actual period, reference, after and delayed stages', () => {
@@ -161,8 +161,8 @@ test('future dates ignore all unoccurred symptoms while keeping an explicitly pr
   assert.ok(!injected.priorities.some(card => card.urgency === 'medical'));
 });
 
-test('all 48 articles are traceable, every output reference exists, and coverage is immutable to callers', () => {
-  assert.equal(health.length, 22); assert.equal(tcm.length, 8); assert.equal(culture.length, 18);
+test('all 50 articles are traceable, every output reference exists, and coverage is immutable to callers', () => {
+  assert.equal(health.length, 24); assert.equal(tcm.length, 8); assert.equal(culture.length, 18);
   const coverage = Advice.getRuleCoverage();
   assert.equal(new Set(coverage.map(rule => rule.id)).size, coverage.length);
   assert.ok(coverage.every(rule => rule.when && (rule.articleIds.length || rule.basis === 'editorial')));
@@ -174,7 +174,7 @@ test('all 48 articles are traceable, every output reference exists, and coverage
   for (let day = 20; day <= 25; day++) contexts.push({ ...base(), date: '2026-10-' + day, culture: true, cultureInfo: { element: '木', label: '历法标签' }, topics: ['tcm', 'herbal', 'acupuncture', 'moxibustion', 'movement', 'products'] });
   for (const context of contexts) {
     const plan = Advice.buildPlan(context);
-    assert.equal(plan.consideredCount, 48);
+    assert.equal(plan.consideredCount, 50);
     assert.ok(plan.priorities.length <= 4);
     for (const item of cards(plan)) {
       for (const field of ['id', 'title', 'body', 'reason', 'kind']) assert.ok(item[field]);

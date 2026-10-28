@@ -11,6 +11,19 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function makeHealthArticles() {
   return [
     {
+      id:'health-cycle-four-phases',category:'周期常识',title:'四个阶段怎样看？',summary:'月经、卵泡发育、排卵、黄体变化，不能简单等分成四周。',
+      body:['月经第一天是周期第一天。卵泡期从周期开始延续至排卵，月经期与它有重叠；应用为了看日历，单列月经期和经后卵泡期。排卵是释放卵子的事件，黄体期位于排卵后至下一次月经前。','NHS说明排卵通常距下一次月经约10—16天，很难靠日历精确定位。网站用14天作为展示锚点，不是个人实测；标出的排卵参考日不表示排卵持续一天或避孕安全期。','今天可做：核对最近一次实际开始与结束日，再看标注是已记录、估算还是人工标注；不能仅按阶段假定她有某种情绪或需要限制活动。'],paragraphSources:[[0,1],[0],[]],tags:['四阶段','卵泡期','黄体期','排卵'],
+      sources:[{title:'NHS · Periods and fertility in the menstrual cycle',url:'https://www.nhs.uk/conditions/periods/fertility-in-the-menstrual-cycle/'},{title:'NIH MeSH · Follicular Phase',url:'https://www.ncbi.nlm.nih.gov/mesh?Cmd=DetailsSearch&Db=mesh&Term=%22Follicular+Phase%22%5BMeSH+Terms%5D'}],
+      verification:{checkedAt:'2026-10-28',basis:'mixed',note:'阶段关系与排卵时间来自官方资料；14天展示锚点、日历分段和操作步骤是产品规则，不是个体确认。',sourceNotes:[{url:'https://www.nhs.uk/conditions/periods/fertility-in-the-menstrual-cycle/',supports:'周期起点、排卵与下次月经间隔约10—16天，难以精确定位。'},{url:'https://www.ncbi.nlm.nih.gov/mesh?Cmd=DetailsSearch&Db=mesh&Term=%22Follicular+Phase%22%5BMeSH+Terms%5D',supports:'卵泡期从月经开始延续到排卵。'}]}
+    },
+    {
+      id:'health-phase-signals',category:'周期常识',title:'聊天和身体线索能说明什么？',summary:'记录明确报告，保留日期；日历和情绪不能确认排卵。',
+      body:['LH试纸记录反映激素变化，用来寻找可能的排卵窗口，并不等同已经排卵。基础体温需要连续、同条件记录，单个温度不用于本应用自动确认阶段。分泌物观察也受其他情况影响。','本人在聊天里说月经开始、结束或测到某个结果，可以先提取为候选，再核对日期和原句。回复慢、想独处、疲惫或焦虑会影响怎样照护，不能据此确认黄体期。','今天可做：逐条记录她明确分享的原话；日期不清楚先问清楚。需要判断是否排卵时，可把已有检测与记录带给医生；本应用不代替检测或临床判断。'],paragraphSources:[[0],[],[]],tags:['LH','基础体温','聊天记录','行为','阶段线索'],
+      sources:[{title:'Office on Women’s Health · Trying to conceive',url:'https://womenshealth.gov/pregnancy/you-get-pregnant/trying-conceive'}],
+      verification:{checkedAt:'2026-10-28',basis:'mixed',note:'检测与观察的用途来自OWH；聊天整理、人工核对及不从情绪分期是产品边界。',sourceNotes:[{url:'https://womenshealth.gov/pregnancy/you-get-pregnant/trying-conceive',supports:'日历、连续基础体温、宫颈黏液、LH试纸用于观察周期与可能的易孕窗口，需结合记录。'}]}
+    },
+
+    {
       id: 'health-cycle-day-one', category: '周期常识', title: '周期第 1 天怎么算？',
       summary: '真正开始出血的第一天，记作这一次周期的第 1 天。',
       body: ['月经周期从一次月经开始出血的第一天算起，到下一次月经开始前一天结束；周期长度因人而异，常见范围约为 21–35 天。“28 天”只是参考，不是必须达成的标准。', '网站会把你填写的真实开始日与参考周期分开保存。它可以帮你安排和回看，但不会检测排卵、怀孕或把预计日期自动变成真实月经。'],

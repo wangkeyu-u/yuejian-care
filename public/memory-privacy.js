@@ -604,6 +604,22 @@
     // Profile text matching must happen before sanitizeProfile so a manual
     // source cannot accidentally become a date-wide deletion on import.
     if(action==='delete'&&plain(profileInput.entries))for(const date of removedEntryDates)delete profileInput.entries[date];
+    if(action==='delete'){
+      // Removing an original also removes summaries extracted from that
+      // original, including summaries from a derived day's user messages.
+      let changed=true;
+      while(changed){
+        changed=false;
+        const deletedDates=new Set([...removedEntryDates,...Object.keys(parsedDays.days||{}).filter(date=>!Object.hasOwn(newDays,date)),...cleanMemory(memory).blocks.filter(b=>b.mode==='delete').flatMap(b=>b.sources.filter(x=>x.kind!=='manual').map(x=>x.date))]);
+        for(const item of [...(memory.items||[])])if(item.evidence?.kind!=='manual'&&deletedDates.has(item.evidence?.date)){
+          memory=Memory.forget(memory,item.id);changed=true;
+        }
+        const cleaned=sanitizeDays(newDays,memory);
+        if(Object.keys(cleaned).length!==Object.keys(newDays).length)changed=true;
+        newDays=cleaned;
+      }
+      for(const date of deleteDatesFromProfile(profileInput,memory)){removedEntryDates.add(date);delete profileInput.entries[date];}
+    }
     const newProfile=sanitizeProfile(profileInput,memory);
     newProfile.revision=(Number.isSafeInteger(profile.revision)&&profile.revision>=0?profile.revision:0)+1;
     if(State&&typeof State.decode==='function'){
@@ -619,6 +635,7 @@
     };
     for(const key of BACKUP_KEYS)writes[key]=null;
     const result={
+      removedMemoryCount:Math.max(0,(currentMemory.items||[]).length-(newProfile.memory.items||[]).length),
       profile:newProfile,
       days:newDays,
       affectedDates:[...affectedDates].filter(iso).sort(),
