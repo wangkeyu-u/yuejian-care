@@ -27,12 +27,12 @@
     $('#api-key').placeholder=vault.get()?'已配置；填写可替换当前 Key':'填写你的 API Key';$('#api-status').textContent=vault.get()?'Key 已配置，仅此标签页会话可用。':'尚未配置 Key。';
     $('#period-history').innerHTML=s.periods.length?s.periods.slice().reverse().map(p=>`<div class="history-row"><div><strong>${esc(p.start)}${p.end?' → '+esc(p.end):''}</strong><p class="fine muted">${p.status==='ended'?'实际 '+P.actualDuration(p,today)+' 天':p.status==='ongoing'?'尚未结束 · 第 '+P.actualDuration(p,today)+' 天':'结束日待确认'}</p></div><button class="small-link" data-edit-period="${esc(p.id)}">修改</button></div>`).join(''):'<p class="fine muted">还没有实际经期，先添加最近一次。</p>';
     if(periodUndo)$('#period-history').insertAdjacentHTML('beforeend','<button class="small-link" id="period-undo">撤销上次经期修改</button>');
-    const book=days(),savedDates=[...new Set([...Object.keys(s.entries),...Object.keys(book)])].sort().reverse();$('#record-count').textContent=`· ${savedDates.length} 天`;
+    $('#local-store-location').textContent='保存位置：当前设备 · 当前浏览器 · '+location.host;const book=days();$('#local-data-overview').textContent=`本机保存：${s.periods.length} 次经期 · ${Object.keys(s.entries).length} 天情况 · ${Object.keys(book).length} 天 AI 对话 · ${s.memory.items.filter(x=>x.status==='confirmed').length} 条已确认记忆`;const savedDates=[...new Set([...Object.keys(s.entries),...Object.keys(book)])].sort().reverse();$('#record-count').textContent=`· ${savedDates.length} 天`;
     $('#saved-days').innerHTML=savedDates.map(date=>`<div class="history-row"><div><strong>${date}</strong><p class="fine muted">${s.entries[date]?'有当天情况':''}${book[date]?' · 有 AI 分析与对话':''}</p></div><button class="small-link" data-open-day="${date}">打开这一天 →</button></div>`).join('')||'<p class="fine muted">还没有记录。</p>';
     window.MoonMemoryUI?.refresh();
     $('#import-restore').hidden=!localStorage.getItem(BUNDLE)&&!localStorage.getItem(S.IMPORT);
   }
-  function renderAll(){document.body.classList.toggle('quiet-mode',store.get().quiet);$('#today-label').textContent=today;$('#data-notice').hidden=!store.error();$('#data-notice').textContent=store.error()?'本机原始记录无法读取，已保留并暂停写入。可在设置导出原始数据或选择有效备份导入。':'';renderCalendar();renderSettings();window.MoonDayChat?.refresh();}
+  function renderAll(){$('#local-profile-title').textContent=store.get().partner.nickname?store.get().partner.nickname+'的本地档案':'她的本地档案';$('#local-save-status').textContent=store.error()?'本地记录读取异常，已暂停写入':store.original()?'已保存的资料留在此浏览器 · 点击保存后立即更新':'单人使用 · 点击保存后写入此浏览器';document.body.classList.toggle('quiet-mode',store.get().quiet);$('#today-label').textContent=today;$('#data-notice').hidden=!store.error();$('#data-notice').textContent=store.error()?'本机原始记录无法读取，已保留并暂停写入。可在设置导出原始数据或选择有效备份导入。':'';renderCalendar();renderSettings();window.MoonDayChat?.refresh();}
   function openDay(date,article=''){selected=date;month=date.slice(0,7);renderCalendar();window.MoonDayChat.open(date,article);}
   function openPeriod(id=null){const p=store.get().periods.find(x=>x.id===id);periodEditor={id:p?.id||null,token:store.token()};$('#period-title').textContent=p?'修改实际经期':'添加一次实际经期';$('#period-date').value=p?.start||today;$('#period-status').value=p?.status||'unknown';$('#period-end').value=p?.end||'';$('#period-date').max=today;$('#period-end').max=today;$('#period-delete').hidden=!p;$('#period-error').textContent='';previewPeriod();$('#period-dialog').showModal();}
   function candidate(){return {id:periodEditor.id||'period-'+crypto.randomUUID(),start:$('#period-date').value,status:$('#period-status').value,end:$('#period-status').value==='ended'?$('#period-end').value||null:null};}
@@ -45,7 +45,7 @@
   window.MoonMemoryUI.init({store,sessions,vault,notify});
   store.subscribe(()=>{renderAll();});
   document.addEventListener('click',event=>{
-    const close=event.target.closest('[data-close]');if(close)$('#'+close.dataset.close).close();const settings=event.target.closest('[data-go-settings]');if(settings)goSettings();
+    if(event.target.closest('[data-local-backup]'))exportData();const close=event.target.closest('[data-close]');if(close)$('#'+close.dataset.close).close();const settings=event.target.closest('[data-go-settings]');if(settings)goSettings();
     const day=event.target.closest('[data-date]');if(day)openDay(day.dataset.date);const saved=event.target.closest('[data-open-day]');if(saved)openDay(saved.dataset.openDay);const period=event.target.closest('[data-edit-period]');if(period)openPeriod(period.dataset.editPeriod);
     if(event.target.closest('#period-undo')&&periodUndo){try{const undo=periodUndo;store.update(s=>{s.periods=undo.periods;s.periodRevision+=1;},undo.token);periodUndo=null;renderSettings();notify('已撤销经期修改。');}catch(error){notify(error.message);}}
   });
