@@ -1,11 +1,11 @@
-(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'),require('./periods.js'),require('./forecast.js'),require('./advice.js'),require('./vendor/lunar.js'),require('./memory.js'));else root.MoonDayContext=factory(root.MoonCore,root.MoonPeriods,root.MoonForecast,root.MoonAdvice,{Solar:root.Solar},root.MoonMemory);})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Periods,Forecast,Advice,Lunar,Memory){
+(function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'),require('./periods.js'),require('./forecast.js'),require('./advice.js'),require('./vendor/lunar.js'),require('./memory.js'),require('./care-output.js'));else root.MoonDayContext=factory(root.MoonCore,root.MoonPeriods,root.MoonForecast,root.MoonAdvice,{Solar:root.Solar},root.MoonMemory,root.MoonCareOutput);})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Periods,Forecast,Advice,Lunar,Memory,CareOutput){
   'use strict';
-  const VERSION='day-context-4.1.0-memory-sources-20261026';
+  const VERSION='day-context-4.2.0-actions-food-20261028';
   const PSYCH=['health-sleep','health-pms','health-pmdd','health-anxiety-cycle'];
   const text=(v,n)=>typeof v==='string'?v.trim().slice(0,n):'';
   const one=(v,a,d='')=>a.includes(v)?v:d;
   const topics=['tcm','herbal','acupuncture','moxibustion','movement','products'];
-  function makeInput(profile,date,model=profile.model){const e=profile.entries?.[date]||{},p=profile.partner?.consent?profile.partner:{};return {date,model:model||'gpt-4.1-mini',memory:Memory.projected(profile.memory,date,Core.todayISO()),profile:{periods:profile.periods.slice(-24),cycleLength:profile.cycleLength,periodLength:profile.periodLength},observation:{...e,topics:[...new Set([...(profile.focus||[]),...(e.topics||[])])],support:e.support||p.support||'ask'},preferences:{likes:p.likes||'',avoid:p.avoid||'',tone:profile.tone||'gentle'},culture:{enabled:profile.culture===true,birthday:profile.birthConfirmed?profile.birthday:'',birthTime:profile.birthTime||''}};}
+  function makeInput(profile,date,model=profile.model){const e=profile.entries?.[date]||{},p=profile.partner?.consent?profile.partner:{};return {date,model:model||'gpt-4.1-mini',memory:Memory.projected(profile.memory,date,Core.todayISO()),profile:{periods:profile.periods.slice(-24),cycleLength:profile.cycleLength,periodLength:profile.periodLength},observation:{...e,topics:[...new Set([...(profile.focus||[]),...(e.topics||[])])],support:e.support||p.support||'ask'},preferences:{likes:p.likes||'',avoid:p.avoid||'',dietary:p.dietary||'',tone:profile.tone||'gentle'},culture:{enabled:profile.culture===true,birthday:profile.birthConfirmed?profile.birthday:'',birthTime:profile.birthTime||''}};}
   function normalize(input,today=Core.todayISO()){
     if(!input||!Core.isISODate(input.date))throw Error('请选择有效日期');
     const p=input.profile;if(!p||!Array.isArray(p.periods)||p.periods.length>24)throw Error('经期格式或数量无效');
@@ -13,7 +13,7 @@
     if(!Number.isInteger(cycleLength)||cycleLength<15||cycleLength>90||!Number.isInteger(periodLength)||periodLength<1||periodLength>14)throw Error('参考周期无效');
     if(!/^gpt-[a-zA-Z0-9._-]{1,70}$/.test(input.model))throw Error('模型 ID 无效');
     const o=input.observation||{},future=input.date>today,c=input.culture||{},preferences=input.preferences||{};
-    return {version:VERSION,date:input.date,today,model:input.model,memory:Memory.normalizeInput(input.memory,input.date,today),profile:{periods,cycleLength,periodLength},observation:{mood:future?'':one(o.mood,['平静','紧绷','很难受']),pain:!future&&[0,2,5,8,10].includes(o.pain)?o.pain:null,energy:future?'':one(o.energy,['low','medium','high']),sleep:future?'':one(o.sleep,['poor','okay']),flow:future?'':one(o.flow,['usual','heavy','unexpected']),note:future?'':text(o.note,500),support:one(o.support,['ask','alone','quiet','help','独处','安静陪伴','具体帮助'],'ask'),topics:Array.isArray(o.topics)?[...new Set(o.topics.filter(x=>topics.includes(x)))]:[]},preferences:{likes:text(preferences.likes,240),avoid:text(preferences.avoid,240),tone:one(preferences.tone,['brief','gentle','detailed'],'gentle')},culture:{enabled:c.enabled===true,birthday:c.enabled&&Core.isISODate(c.birthday)&&c.birthday<=today?c.birthday:'',birthTime:c.enabled&&/^([01]\d|2[0-3]):[0-5]\d$/.test(c.birthTime)?c.birthTime:''}};
+    return {version:VERSION,date:input.date,today,model:input.model,memory:Memory.normalizeInput(input.memory,input.date,today),profile:{periods,cycleLength,periodLength},observation:{mood:future?'':one(o.mood,['平静','紧绷','很难受']),pain:!future&&[0,2,5,8,10].includes(o.pain)?o.pain:null,energy:future?'':one(o.energy,['low','medium','high']),sleep:future?'':one(o.sleep,['poor','okay']),flow:future?'':one(o.flow,['usual','heavy','unexpected']),note:future?'':text(o.note,500),support:one(o.support,['ask','alone','quiet','help','独处','安静陪伴','具体帮助'],'ask'),topics:Array.isArray(o.topics)?[...new Set(o.topics.filter(x=>topics.includes(x)))]:[]},preferences:{likes:text(preferences.likes,240),avoid:text(preferences.avoid,240),dietary:text(preferences.dietary,300),tone:one(preferences.tone,['brief','gentle','detailed'],'gentle')},culture:{enabled:c.enabled===true,birthday:c.enabled&&Core.isISODate(c.birthday)&&c.birthday<=today?c.birthday:'',birthTime:c.enabled&&/^([01]\d|2[0-3]):[0-5]\d$/.test(c.birthTime)?c.birthTime:''}};
   }
   function signature(input,today){return JSON.stringify(normalize(input,today));}
   function cultureOf(input){
@@ -27,7 +27,7 @@
   function build(input,catalog,today=Core.todayISO(),question='',focusArticleId=''){
     const clean=normalize(input,today),forecast=Forecast.estimate({...clean.profile,periods:clean.profile.periods.filter(p=>p.start<=clean.date)},today),info=Core.getCycle({...clean.profile,cycleLength:forecast.cycleLength},clean.date,today);
     const plan=Advice.buildPlan({date:clean.date,today,info,...clean.observation,partner:{...clean.preferences,support:clean.observation.support,consent:true},culture:false});
-    const ids=new Set([...plan.selectedArticleIds,'health-cycle-day-one','health-help-now','health-urgent-pain',...PSYCH,'tcm-pain-language','tcm-visit-preparation']);
+    const ids=new Set([...plan.selectedArticleIds,'health-cycle-day-one','health-help-now','health-urgent-pain',...PSYCH,'tcm-pain-language','tcm-visit-preparation','nutrition-meal-pattern','nutrition-iron-foods','nutrition-pms-appetite']);
     if(clean.culture.enabled)for(const id of ['culture-stem-branch','culture-ten-stems-elements','culture-day-stem-not-bazi','culture-unknown-birth-hour','culture-generating-overcoming-cycles','culture-zodiac-no-taboo'])ids.add(id);
     const queries=[['针灸',['tcm-acupuncture-evidence','tcm-acupuncture-safety']],['艾灸',['tcm-moxibustion-risk']],['中药|药膳|调经茶',['tcm-herbal-safety','tcm-food-herb-interactions','health-medication']],['用品|棉条|月经杯|清洗',['health-products','health-tampon-cup','health-vulva-cleaning']],['运动|游泳',['health-movement-swim']]];
     for(const [pattern,list]of queries)if(new RegExp(pattern).test(question))for(const id of list)ids.add(id);
@@ -35,5 +35,5 @@
     const articles=catalog.filter(a=>ids.has(a.id)&&(clean.culture.enabled||!a.id.startsWith('culture-'))).map(a=>({id:a.id,subject:a.id.startsWith('tcm-')?'tcm':a.id.startsWith('culture-')?'culture':PSYCH.includes(a.id)?'psychology':'western',title:a.title,body:a.body,sources:a.sources,verification:a.verification}));
     return {signature:JSON.stringify(clean),longTermMemory:clean.memory,date:clean.date,today,model:clean.model,future:clean.date>today,forecast,info,observation:clean.observation,preferences:clean.preferences,culture:cultureOf(clean),medicalPriority:plan.priorities.filter(a=>a.urgency==='medical'),phaseLabel:plan.phaseLabel,articles};
   }
-  return {VERSION,PSYCH,Memory,makeInput,normalize,signature,build};
+  return {VERSION,PSYCH,Memory,CareOutput,makeInput,normalize,signature,build};
 });

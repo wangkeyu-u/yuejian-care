@@ -13,6 +13,8 @@ function app({data=fixture(),fetchImpl=async()=>{throw Error('network disabled i
 const change=(a,s,v)=>{a.$(s).value=v;a.$(s).dispatchEvent(new a.w.Event('input',{bubbles:true}));a.$(s).dispatchEvent(new a.w.Event('change',{bubbles:true}));};
 const submit=(a,s)=>a.$(s).dispatchEvent(new a.w.Event('submit',{bubbles:true,cancelable:true}));
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-const analysis=()=>({summary:'仅用于测试的合成分析',uncertainty:'这是测试响应。',sections:[['culture','culture-stem-branch'],['tcm','tcm-pain-language'],['western','health-cycle-day-one'],['psychology','health-sleep']].map(([kind,id])=>({kind,title:kind+' 测试分析',body:'根据当天已存资料整理。',actions:['一个可选安排'],articleIds:[id]}))});
-function mockAI(log=[]){return async(url,options)=>{const p=JSON.parse(options.body);log.push({url,p,options});return {ok:true,json:async()=>({...p.mode==='analysis'?{analysis:analysis()}:{reply:'针对这一天的回答',articleIds:['health-sleep'],uncertainty:'资料有限。'},signature:p.signature,model:p.model,generatedAt:today+'T04:00:00Z'})};};}
-module.exports={KEY,today,fixture,app,change,submit,tick,analysis,mockAI};
+const action=()=>({when:'今天准备晚饭前',task:'先问她想吃什么',how:'问一句：今天想吃米饭还是面？再确认忌口。',adjust:'她不想决定时，先提供两个可拒绝的选项。'});
+const food=()=>({title:'合成三餐示例',basis:'仅用于界面测试，不是真实模型输出。',caution:'先确认过敏、忌口和医嘱，再决定是否采用。',meals:['早餐','午餐','晚餐'].map(slot=>({slot,foods:slot==='早餐'?'燕麦、酸奶和水果':slot==='午餐'?'米饭、豆类和蔬菜':'面食、鸡蛋和蔬菜',swap:'按过敏、忌口和她愿意吃的食物替换。',prepare:'确认食材后，按平时食量准备。'})),actions:[action()],articleIds:['nutrition-meal-pattern']});
+const analysis=()=>({summary:'仅用于测试的合成分析',uncertainty:'这是测试响应。',food:food(),sections:[['culture','culture-stem-branch'],['tcm','tcm-pain-language'],['western','health-cycle-day-one'],['psychology','health-sleep']].map(([kind,id])=>({kind,title:kind+' 测试分析',body:'根据当天已存资料整理。',actions:[action()],articleIds:[id]}))});
+function mockAI(log=[]){return async(url,options)=>{const p=JSON.parse(options.body);log.push({url,p,options});return {ok:true,json:async()=>({...p.mode==='analysis'?{analysis:analysis()}:{reply:'针对这一天的回答',actions:[action()],articleIds:['health-sleep'],uncertainty:'资料有限。'},signature:p.signature,model:p.model,generatedAt:today+'T04:00:00Z'})};};}
+module.exports={KEY,today,fixture,app,change,submit,tick,analysis,action,food,mockAI};

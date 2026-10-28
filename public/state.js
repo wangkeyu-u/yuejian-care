@@ -4,7 +4,7 @@
   const topics=['tcm','herbal','acupuncture','moxibustion','movement','products'];
   const text=(value,size)=>typeof value==='string'?value.trim().slice(0,size):'';
   const one=(value,values,fallback='')=>values.includes(value)?value:fallback;
-  const defaults=()=>({version:3,revision:0,periodRevision:0,periods:[],starts:[],cycleLength:28,periodLength:5,partner:{nickname:'',support:'ask',likes:'',avoid:'',consent:false},birthday:'',birthConfirmed:false,birthTime:'',city:'',culture:true,quiet:false,model:'gpt-4.1-mini',tone:'gentle',focus:[],memory:Memory.empty(),entries:{},activities:[],tasks:{}});
+  const defaults=()=>({version:3,revision:0,periodRevision:0,periods:[],starts:[],cycleLength:28,periodLength:5,partner:{nickname:'',support:'ask',likes:'',avoid:'',dietary:'',consent:false},birthday:'',birthConfirmed:false,birthTime:'',city:'',culture:true,quiet:false,model:'gpt-4.1-mini',tone:'gentle',focus:[],memory:Memory.empty(),entries:{},activities:[],tasks:{}});
   function entry(raw={}){return {mood:one(raw.mood,['平静','紧绷','很难受']),pain:[0,2,5,8,10].includes(raw.pain)?raw.pain:null,energy:one(raw.energy,['low','medium','high']),sleep:one(raw.sleep,['poor','okay']),flow:one(raw.flow,['usual','heavy','unexpected']),support:one(raw.support,['独处','安静陪伴','具体帮助']),note:text(raw.note,500),topics:Array.isArray(raw.topics)?[...new Set(raw.topics.filter(x=>topics.includes(x)))]:[]};}
   function decode(raw,today=Core.todayISO()){
     if(!raw)return defaults();const input=typeof raw==='string'?JSON.parse(raw):raw;
@@ -12,7 +12,7 @@
     const s=defaults();s.periods=Periods.migratePeriods(input,today);s.starts=s.periods.map(p=>p.start);
     s.revision=Number.isSafeInteger(input.revision)&&input.revision>=0?input.revision:0;s.periodRevision=Number.isSafeInteger(input.periodRevision)&&input.periodRevision>=0?input.periodRevision:0;
     s.cycleLength=Number.isInteger(input.cycleLength)&&input.cycleLength>=15&&input.cycleLength<=90?input.cycleLength:28;s.periodLength=Number.isInteger(input.periodLength)&&input.periodLength>=1&&input.periodLength<=14?input.periodLength:5;
-    const p=input.partner||{};s.partner={nickname:text(p.nickname,40),support:one(p.support,['ask','alone','quiet','help'],'ask'),likes:text(p.likes,240),avoid:text(p.avoid,240),consent:p.consent===true};
+    const p=input.partner||{};s.partner={nickname:text(p.nickname,40),support:one(p.support,['ask','alone','quiet','help'],'ask'),likes:text(p.likes,240),avoid:text(p.avoid,240),dietary:text(p.dietary,300),consent:p.consent===true};
     s.birthday=Core.isISODate(input.birthday)?input.birthday:'';s.birthConfirmed=input.birthConfirmed===true&&!!s.birthday;s.birthTime=/^([01]\d|2[0-3]):[0-5]\d$/.test(input.birthTime)?input.birthTime:'';s.city=text(input.city,40);
     s.culture=typeof input.culture==='boolean'?input.culture:true;s.quiet=input.quiet===true;s.model=/^gpt-[a-zA-Z0-9._-]{1,70}$/.test(input.model)?input.model:s.model;s.tone=one(input.tone,['brief','gentle','detailed'],'gentle');s.focus=Array.isArray(input.focus)?[...new Set(input.focus.filter(x=>topics.includes(x)))]:[];
     if(input.entries&&typeof input.entries==='object')for(const [date,value]of Object.entries(input.entries))if(Core.isISODate(date)&&date<=today&&value&&typeof value==='object')s.entries[date]=entry(value);

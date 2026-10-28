@@ -1,7 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
 const M=require('../public/memory.js'),S=require('../public/state.js'),D=require('../public/day-context.js'),AI=require('../public/ai-client.js');
 const catalog=require('../public/catalog.js').articles;
-const {app,fixture,change,submit,tick,analysis,KEY,today}=require('./helpers.cjs');
+const {app,fixture,change,submit,tick,analysis,action,food,KEY,today}=require('./helpers.cjs');
 const item=(patch={})=>({id:'m1',category:'support',content:'她平时喜欢安静陪伴',status:'confirmed',since:'2026-10-20',until:null,evidence:{date:'2026-10-20',kind:'manual',sourceId:'manual',quote:'她平时喜欢安静陪伴'},createdAt:today,updatedAt:today,...patch});
 const memory=(items=[])=>({...M.empty(),items});
 const candidate=(patch={})=>({category:'support',content:'她平时喜欢安静陪伴',scope:'long_term',sourceId:'question',quote:'她平时喜欢安静陪伴',...patch});
@@ -46,7 +46,7 @@ const wrap=value=>new Response(JSON.stringify({status:'completed',output:[{conte
 const create=async fetchImpl=>(await import(pathToFileURL(path.resolve(__dirname,'../worker/day-ai.mjs')))).createDayAnalyzer({DayContext:D,catalog,fetchImpl,now:()=>today});
 const request=p=>new Request('https://memory.test/api/day',{method:'POST',headers:{Origin:'https://memory.test','Content-Type':'application/json',Authorization:'Bearer synthetic_only_key_1234567890'},body:JSON.stringify(p)});
 const payload=(state=S.defaults(),mode='analysis')=>{const p={...D.makeInput(state,today),mode,consent:true,history:[],question:''};p.signature=D.signature(p,today);return p;};
-const valid=p=>({summary:'合成测试',uncertainty:'资料有限',sections:['culture','tcm','western','psychology'].map(kind=>({kind,title:kind,body:'测试',actions:[],articleIds:D.build(p,catalog,today).articles.filter(a=>a.subject===kind).slice(0,1).map(a=>a.id)}))});
+const valid=p=>({summary:'合成测试',uncertainty:'资料有限',food:food(),sections:['culture','tcm','western','psychology'].map(kind=>({kind,title:kind,body:'测试',actions:[action()],articleIds:D.build(p,catalog,today).articles.filter(a=>a.subject===kind).slice(0,1).map(a=>a.id)}))});
 test('API puts confirmed memory in instructions, not raw source quotes, and filters candidate evidence',async()=>{
  const s=S.defaults();s.memory=memory([item({evidence:{...item().evidence,quote:'RAW-SOURCE-NOT-SENT'}}),item({id:'pending',status:'pending',content:'PENDING-NOT-SENT'})]);s.entries[today]={note:source().text};const p=payload(s);let body;
  const api=await create(async(url,options)=>{body=JSON.parse(options.body);return wrap({...valid(p),memoryCandidates:[candidate({sourceId:'day-note'}),candidate({sourceId:'invented'})]});});
@@ -65,7 +65,7 @@ test('disabled auto extraction returns no candidates and future day chat remains
  const s=S.defaults();s.memory.autoExtract=false;s.entries[today]={note:source().text};const p=payload(s);const api=await create(async()=>wrap({...valid(p),memoryCandidates:[candidate({sourceId:'day-note'})]}));
  assert.deepEqual((await (await api.analyze(request(p))).json()).memoryCandidates,[]);
  const future={...p,date:'2026-10-29',mode:'chat',question:'她平时喜欢安静，明天怎么准备？',analysis:valid(p)};future.signature=D.signature(future,today);
- const chat=await create(async()=>wrap({reply:'先询问她的需要',articleIds:['health-sleep'],uncertainty:'未来仅供准备',memoryCandidates:[]}));assert.equal((await chat.analyze(request(future))).status,200);
+ const chat=await create(async()=>wrap({reply:'先询问她的需要',actions:[action()],articleIds:['health-sleep'],uncertainty:'未来仅供准备',memoryCandidates:[]}));assert.equal((await chat.analyze(request(future))).status,200);
 });
 test('request budget drops whole early rounds before exceeding the relay limit',()=>{
  const history=Array.from({length:12},(_,i)=>({role:i%2?'assistant':'user',content:'中'.repeat(3000)}));
