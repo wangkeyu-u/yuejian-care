@@ -56,7 +56,11 @@
   function barrierToken(b){return fingerprint(JSON.stringify({rootId:b.rootId,ids:[...b.ids].sort(),sources:b.sources.map(x=>[x.date,x.kind,x.sourceId]).sort(),mode:b.mode}));}
   function barrierTokens(raw){return normalize(raw).blocks.map(barrierToken);}
   function acknowledges(value,block){return Array.isArray(value?.privacyBlocks)&&value.privacyBlocks.includes(barrierToken(block));}
-  function blockedSource(raw,date,kind,value){return normalize(raw).blocks.some(b=>!acknowledges(value,b)&&b.sources.some(s=>s.date===date&&(!kind||s.kind===kind)));}
+  function sourceGuard(raw){
+    const index=new Map();for(const b of normalize(raw).blocks){const token=barrierToken(b),byDate=new Map();for(const s of b.sources){if(!byDate.has(s.date))byDate.set(s.date,new Set());byDate.get(s.date).add(s.kind);}for(const [date,kinds]of byDate){if(!index.has(date))index.set(date,[]);index.get(date).push({token,kinds});}}
+    return (date,kind,value)=>{const acknowledged=Array.isArray(value?.privacyBlocks)?value.privacyBlocks:[];return (index.get(date)||[]).some(b=>!acknowledged.includes(b.token)&&(!kind||b.kinds.has(kind)));};
+  }
+  function blockedSource(raw,date,kind,value){return sourceGuard(raw)(date,kind,value);}
   function normalizeEvidence(raw,today=Core.todayISO()){
     if(!Array.isArray(raw)||raw.length>20)throw Error('提取来源数量无效。');const values=raw.map(x=>{if(!x||!Core.isISODate(x.date)||x.date>today||!['chat','note'].includes(x.kind)||typeof x.id!=='string'||!/^[-a-zA-Z0-9:_]{1,100}$/.test(x.id)||typeof x.text!=='string'||x.text.length>3000)throw Error('提取来源无效。');return {id:x.id,date:x.date,kind:x.kind,text:x.text};});if(new Set(values.map(x=>x.id)).size!==values.length)throw Error('提取来源 ID 重复');return values;
   }
@@ -91,5 +95,5 @@
   function forget(raw,id,today=Core.todayISO()){const m=normalize(raw),old=m.items.find(x=>x.id===id);if(!old)return m;const targets=m.items.filter(x=>x.rootId===old.rootId);addBlock(m,targets,'delete',today);m.items=m.items.filter(x=>x.rootId!==old.rootId);m.revision++;return m;}
   function reconcileImport(incoming,current){const next=normalize(incoming),now=normalize(current);next.ignored=[...new Set([...next.ignored,...now.ignored])];const seen=new Set();next.blocks=[...next.blocks,...now.blocks].filter(b=>{const k=JSON.stringify(b);if(seen.has(k))return false;seen.add(k);return true;});
     const protectedRoots=new Set([...now.blocks.map(b=>b.rootId),...now.items.filter(x=>x.supersedes||x.archiveReason==='changed').map(x=>x.rootId)]);next.items=next.items.filter(x=>!protectedRoots.has(x.rootId)&&!now.blocks.some(b=>b.ids.includes(x.id)||b.rootId===x.rootId||b.keys.some(k=>[contentKey(x),evidenceKey(x),factKey(x)].includes(k)))&&!now.ignored.some(k=>[contentKey(x),evidenceKey(x),factKey(x)].includes(k)));for(const x of now.items)if(protectedRoots.has(x.rootId)&&!next.items.some(y=>y.id===x.id))next.items.push(x);next.revision=Math.max(next.revision,now.revision)+1;return normalize(next);}
-  return {VERSION,MAX_ACTIVE,categories,topics,empty,normalize,active,projected,normalizeInput,promptBlock,dayEvidence,normalizeEvidence,validateCandidates,mergeCandidates,approve,correct,stop,forget,fingerprint,contentKey,evidenceKey,contextToken,queryTopics,select,barrierToken,barrierTokens,acknowledges,blockedSource,reconcileImport};
+  return {VERSION,MAX_ACTIVE,categories,topics,empty,normalize,active,projected,normalizeInput,promptBlock,dayEvidence,normalizeEvidence,validateCandidates,mergeCandidates,approve,correct,stop,forget,fingerprint,contentKey,evidenceKey,contextToken,queryTopics,select,barrierToken,barrierTokens,acknowledges,sourceGuard,blockedSource,reconcileImport};
 });

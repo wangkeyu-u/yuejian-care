@@ -10,7 +10,7 @@
  function unknown(reason){return {key:'unknown',label:labels.unknown,status:'unknown',start:null,end:null,day:null,remaining:null,windows:[],basis:reason,uncertainty:'聊天、情绪和一般行为不能确认排卵或黄体期。',ovulationWindow:null,sourceDates:[]};}
  function assess(profile,date,today=C.todayISO()){
   if(!C.isISODate(date)||!C.isISODate(today))throw Error('阶段日期无效');const f=F.estimate(profile,today),info=C.getCycle({...profile,cycleLength:f.cycleLength},date,today),periods=profile.periods||[],anchor=periods.find(p=>p.id===info.periodId);
-  const entries=Object.fromEntries(Object.entries(profile.entries||{}).filter(([d,e])=>!M.blockedSource(profile.memory,d,'note',e)));
+  const blocked=M.sourceGuard(profile.memory),entries=Object.fromEntries(Object.entries(profile.entries||{}).filter(([d,e])=>d<=date&&d<=today&&!blocked(d,'note',e)));
   const actual=['confirmed','ongoing'].includes(info.bleedingState)&&date<=today;
   const actualState=actual?{...unknown('依据已保存的实际出血起止记录。'),key:'menstrual',label:labels.menstrual,status:'recorded',start:anchor.start,end:anchor.end,day:C.diffDays(date,anchor.start)+1,remaining:anchor.end?C.diffDays(anchor.end,date)+1:null,sourceDates:[anchor.start]}:null;
   const actualAnchor=periods.filter(p=>p.start<=date).at(-1)?.start;
@@ -24,7 +24,7 @@
   if(!next)return actualState||unknown('缺少下一次参考日期，无法分段。');const length=C.diffDays(next,info.cycleStart);
   if(length<21||length>35)return actualState||unknown('本轮参考间隔不适合使用本应用的简化分期，请保留实际记录或手动标注。');
   let ovulation=safe(next,-14);const windowStart=safe(next,-16),windowEnd=safe(next,-10);if(!ovulation||!windowStart||!windowEnd)return actualState||unknown('日期超出可计算范围。');
-  const lh=Object.entries(entries).filter(([d,e])=>d>=info.cycleStart&&d<next&&d<=today&&e.signals?.some(x=>x.kind==='lh_positive')).sort(([a],[b])=>b.localeCompare(a))[0];
+  const lh=Object.entries(entries).filter(([d,e])=>d>=info.cycleStart&&d<next&&d<=date&&d<=today&&e.signals?.some(x=>x.kind==='lh_positive')).sort(([a],[b])=>b.localeCompare(a))[0];
   if(lh){const point=safe(lh[0],1);if(!point||point<windowStart||point>windowEnd)return actualState||unknown('LH 线索与本轮日历估算不一致；暂不强行分期，请核对日期或标注判断。');ovulation=point;}
   const menstrualEnd=anchor?.end||safe(info.cycleStart,(profile.periodLength||5)-1);
   if(!menstrualEnd||menstrualEnd>=ovulation)return actualState||unknown('实际出血范围与简化分期边界重叠，先核对出血记录。');
@@ -33,8 +33,8 @@
   const result={...unknown(''),...current,label:labels[current.key],status:'estimated',day:C.diffDays(date,current.start)+1,remaining:C.diffDays(current.end,date)+1,windows,ovulationWindow:{start:windowStart,end:windowEnd},sourceDates:[info.cycleStart,...(lh?[lh[0]]:[])],basis:(lh?'将已核对的 LH 报告次日暂作展示锚点（工程规则），并与周期参考核对；LH 不能确认已经排卵。':'依据实际月经起点与'+(nextActual?'下一次实际开始日回看':'参考周期')+'，以距下次月经14天作为展示用排卵锚点。'),uncertainty:'展示锚点均不是个人实测；14天仅为日历默认中间参考。排卵通常距下次月经约10—16天；参考日不是排卵持续时间，也不是安全期。'};return actualState?{...result,...actualState,windows:result.windows,ovulationWindow:result.ovulationWindow}:result;
  }
  function project(profile,date,today=C.todayISO()){
-  const info=C.getCycle({...profile,cycleLength:F.estimate(profile,today).cycleLength},date,today),actualAnchor=(profile.periods||[]).filter(p=>p.start<=date).at(-1)?.start,entries=Object.entries(profile.entries||{}).filter(([d,e])=>d<=date&&d<=today&&!M.blockedSource(profile.memory,d,'note',e));
-  return {tracking:profile.phaseTracking==='paused'?'paused':'calendar',lhDates:entries.filter(([d,e])=>(!info.cycleStart||d>=info.cycleStart)&&e.signals?.some(x=>x.kind==='lh_positive')).map(([d])=>d).slice(-20),annotations:entries.filter(([d,e])=>(!actualAnchor||d>=actualAnchor)&&e.phaseHint&&e.phaseHint.until>=date).sort(([a],[b])=>a.localeCompare(b)).slice(-1).map(([d,e])=>({date:d,...e.phaseHint}))};
+  const info=C.getCycle({...profile,cycleLength:F.estimate(profile,today).cycleLength},date,today),actualAnchor=(profile.periods||[]).filter(p=>p.start<=date).at(-1)?.start,blocked=M.sourceGuard(profile.memory),entries=Object.entries(profile.entries||{}).filter(([d,e])=>d<=date&&d<=today&&!blocked(d,'note',e));
+  return {tracking:profile.phaseTracking==='paused'?'paused':'calendar',lhDates:entries.filter(([d,e])=>(!info.cycleStart||d>=info.cycleStart)&&e.signals?.some(x=>x.kind==='lh_positive')).map(([d])=>d).sort().slice(-20),annotations:entries.filter(([d,e])=>(!actualAnchor||d>=actualAnchor)&&e.phaseHint&&e.phaseHint.until>=date).sort(([a],[b])=>a.localeCompare(b)).slice(-1).map(([d,e])=>({date:d,...e.phaseHint}))};
  }
  function normalizeInput(raw={},date,today){if(!Array.isArray(raw.lhDates||[])||(raw.lhDates||[]).length>20||!Array.isArray(raw.annotations||[])||(raw.annotations||[]).length>1)throw Error('阶段输入数量无效');const lhDates=[...new Set(raw.lhDates||[])];if(lhDates.some(d=>!C.isISODate(d)||d>date||d>today))throw Error('LH日期无效');const annotations=(raw.annotations||[]).map(x=>{if(!C.isISODate(x.date)||x.date>date||x.date>today)throw Error('标注日期无效');return {date:x.date,...hint(x,x.date)};});return {tracking:raw.tracking==='paused'?'paused':'calendar',lhDates,annotations};}
  function fromInput(profile,data){const entries={};for(const d of data.lhDates)entries[d]={signals:[{kind:'lh_positive'}]};for(const x of data.annotations)entries[x.date]={...(entries[x.date]||{}),phaseHint:{phase:x.phase,until:x.until,reason:x.reason}};return {...profile,entries,phaseTracking:data.tracking};}

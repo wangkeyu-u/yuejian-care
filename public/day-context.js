@@ -1,10 +1,15 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'),require('./periods.js'),require('./forecast.js'),require('./advice.js'),require('./vendor/lunar.js'),require('./memory.js'),require('./care-output.js'),require('./phases.js'),require('./phase-knowledge.js'));else root.MoonDayContext=factory(root.MoonCore,root.MoonPeriods,root.MoonForecast,root.MoonAdvice,{Solar:root.Solar},root.MoonMemory,root.MoonCareOutput,root.MoonPhases,root.MoonPhaseKnowledge);})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Periods,Forecast,Advice,Lunar,Memory,CareOutput,Phases,PhaseKnowledge){
   'use strict';
-  const VERSION='day-context-4.5.0-phase-knowledge-20261028';
+  const VERSION='day-context-4.5.1-consistency-20261028';
   const PSYCH=['health-sleep','health-pms','health-pmdd','health-anxiety-cycle'];
   const text=(v,n)=>typeof v==='string'?v.trim().slice(0,n):'';
   const one=(v,a,d='')=>a.includes(v)?v:d;
   const topics=['tcm','herbal','acupuncture','moxibustion','movement','products'];
+  function periodWindow(periods,date){
+    const sorted=periods.slice().sort((a,b)=>a.start.localeCompare(b.start));
+    const before=sorted.filter(p=>p.start<=date).slice(-7),after=sorted.find(p=>p.start>date);
+    const ids=new Set([...before,...(after?[after]:[]),...sorted.slice(-7)].map(x=>x.id));return sorted.filter(p=>ids.has(p.id));
+  }
   function recentInput(profile,date,question,mode,focus){
     const today=Core.todayISO(),end=date<today?date:today,query=mode==='analysis'?['general']:Memory.queryTopics(question,focus),all=[];
     for(let delta=1;delta<=2;delta++){let d;try{d=Core.addDays(date,-delta);}catch{continue;}const e=profile.entries?.[d];if(!e||d>today)continue;const observation={...e};if(Memory.blockedSource(profile.memory,d,'note',e)){observation.note='';observation.signals=[];}all.push({date:d,observation});}
@@ -17,7 +22,7 @@
   function makeInput(profile,date,model=profile.model,question='',mode='analysis',focus='auto'){
     const e={...(profile.entries?.[date]||{})},p=profile.partner?.consent?profile.partner:{},recent=recentInput(profile,date,question,mode,focus);
     if(Memory.blockedSource(profile.memory,date,'note',e)){e.note='';e.signals=[];e.phaseHint=null;}
-    return {phaseData:Phases.project(profile,date),date,model:model||'gpt-4.1-mini',memory:Memory.projected(profile.memory,date,Core.todayISO(),question,mode,focus),recent:recent.recent,recentRevision:recent.revision,profile:{periods:profile.periods.slice(-24),cycleLength:profile.cycleLength,periodLength:profile.periodLength},observation:{...e,topics:[...new Set([...(profile.focus||[]),...(e.topics||[])])],support:e.support||p.support||'ask'},preferences:{likes:p.likes||'',avoid:p.avoid||'',dietary:p.dietary||'',tone:profile.tone||'gentle'},culture:{enabled:profile.culture===true,birthday:profile.birthConfirmed?profile.birthday:'',birthTime:profile.birthTime||''}};
+    return {phaseData:Phases.project(profile,date),date,model:model||'gpt-4.1-mini',memory:Memory.projected(profile.memory,date,Core.todayISO(),question,mode,focus),recent:recent.recent,recentRevision:recent.revision,profile:{periods:periodWindow(profile.periods,date),cycleLength:profile.cycleLength,periodLength:profile.periodLength},observation:{...e,topics:[...new Set([...(profile.focus||[]),...(e.topics||[])])],support:e.support||p.support||'ask'},preferences:{likes:p.likes||'',avoid:p.avoid||'',dietary:p.dietary||'',tone:profile.tone||'gentle'},culture:{enabled:profile.culture===true,birthday:profile.birthConfirmed?profile.birthday:'',birthTime:profile.birthTime||''}};
   }
   function normalize(input,today=Core.todayISO()){
     if(!input||!Core.isISODate(input.date))throw Error('请选择有效日期');

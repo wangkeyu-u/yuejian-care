@@ -1,13 +1,14 @@
 {
   "name": "yuejian-care",
-  "version": "4.5.0",
+  "version": "4.5.1",
   "private": true,
   "description": "Open-source, browser-local menstrual care for partners",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
     "start": "node scripts/dev-server.mjs",
     "build": "node scripts/build.mjs",
-    "validate": "node scripts/validate-artifact.mjs"
+    "validate": "node scripts/validate-artifact.mjs",
+    "audit": "node scripts/audit-consistency.mjs"
   },
   "dependencies": {
     "lunar-javascript": "1.7.7"
