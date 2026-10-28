@@ -53,6 +53,7 @@
     catch (_) { storageWarning = true; dataReadError = true; protectedRaw = raw; return structuredClone(DEFAULT); }
   }
   let state = loadState();
+  let revealAdvice = false;
   let today = C.todayISO(), selected = today, displayedMonth = today.slice(0, 7);
   let mood = '', support = '', groundStep = 0, toastTimer, periodUndo = null, currentAdvice = null, currentAdviceDate = null;
   let periodEditor = { id: null, token: '' };
@@ -126,6 +127,7 @@
     if (view === 'calendar') renderCalendar();
     if (view === 'knowledge') window.MoonLibrary?.refresh();
     window.scrollTo({ top: 0, behavior: 'instant' });
+    if (view === 'today' && revealAdvice) { revealAdvice = false; $('#companion-guide').scrollIntoView({behavior:state.quiet?'instant':'smooth',block:'start'}); }
   }
   function phaseCopy(info) {
     if (info.phase === 'unknown') return '尚未填写实际开始日期';
@@ -163,6 +165,7 @@
     $('#forecast-range').textContent = forecast.rangeStart && forecast.rangeEnd ? `参考窗口 ${dateLabel(forecast.rangeStart)}—${dateLabel(forecast.rangeEnd)}` : '';
     $('#forecast-detail').textContent = forecast.method === 'history' ? `最近开始日间隔：${forecast.intervals.join('、')} 天；以中位数 ${forecast.cycleLength} 天估算。` : `当前手动参考为 ${state.cycleLength} 天；记录更多实际开始日后可参考个人历史。`;
     $('#forecast-notes').textContent = forecast.notes.join(' ');
+    $('#cycle-overview-summary').textContent = forecast.nextStart ? `下次参考 ${dateLabel(forecast.nextStart)} · 可修改实际日期` : '展开记录实际日期';
     $('#cycle-status').innerHTML = '<span></span>' + escape(phaseCopy(info));
     let title = '从了解她开始，<br>把关心落到小事里。';
     let desc = '记录她愿意分享的实际日期，<br>准备经前、经期与经后的照护。';
@@ -285,7 +288,8 @@
   }
   function renderCulture() {
     ['#home-culture', '#about-culture'].forEach(selector => {
-      const target = $(selector); target.hidden = !state.culture;
+      const panel = $(selector); panel.hidden = !state.culture;
+      const target = selector === '#home-culture' ? $('#home-culture-content') : panel;
       if (!state.culture) return;
       try {
         const l = lunarOf(selected);
@@ -310,9 +314,16 @@
   function adviceCultureInfo() {
     if (!state.culture || state.quiet) return null;
     try {
-      const lunar = lunarOf(selected); const element = elementOf(lunar.getDayGan());
-      const inspirations = { 木: '如果她愿意，一起看看窗外的植物，或留一段不赶时间的散步。', 火: '如果她喜欢，留一盏柔和的灯，或一起听一首熟悉的歌。', 土: '如果她愿意，帮她整理一个小角落，让休息的位置更舒服。', 金: '帮她放下一件不急的待办，给这一天留一点空白。', 水: '如果她喜欢，准备安静的环境，让她听歌或休息。' };
-      return { element, label: lunar.getDayInGanZhi() + '日 · 日干属' + element, inspiration: inspirations[element], birthKnown: state.birthConfirmed && !!state.birthday };
+      const lunar = lunarOf(selected); const dayElement = elementOf(lunar.getDayGan());
+      const choice = window.MoonLibrary?.getRitualSelection(selected);
+      const element = choice?.element || dayElement;
+      const inspirations = { 木: '看看窗外的一株植物，或写一句想对自己说的话。', 火: '打开一盏柔和的灯，或听一首自己熟悉的歌。', 土: '整理手边一个小角落，或保留原样安静休息。', 金: '暂时放下一件不急的待办，给这一天留一点空白。', 水: '听一点舒缓的声音，或把感受写成一句话。' };
+      let birthSymbols = '';
+      if (state.birthConfirmed && C.isISODate(state.birthday)) {
+        const birth = lunarOf(state.birthday), pillar = birth.getYearInGanZhiByLiChun(), birthElement = elementOf(pillar[0]);
+        birthSymbols = `出生年符号 ${pillar}·${birth.getYearShengXiaoByLiChun()}（按立春），年干属${birthElement}；与当日日干的传统对应为“${relation(birthElement, dayElement)}”。这只比较两枚符号，不是完整八字或健康判断`;
+      }
+      return { element, label: lunar.getDayInGanZhi() + '日 · 日干属' + dayElement + (choice?.element ? ' · 当前自选' + element : ''), inspiration: choice?.option || inspirations[element], birthSymbols, birthKnown: state.birthConfirmed && !!state.birthday };
     } catch (_) { return null; }
   }
   function renderCompanion() {
@@ -323,17 +334,11 @@
     const plan = window.MoonAdvice.buildPlan({ date: selected, today, info: getInfo(), partner, mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value, sleep: $('#sleep').value, flow: $('#flow').value, topics, activities: state.activities, culture: state.culture, quiet: state.quiet, cultureInfo: adviceCultureInfo() });
     currentAdvice = plan; currentAdviceDate = selected;
     const articles = [...(window.MoonHealthArticles || []), ...(window.MoonTCMArticles || []), ...(window.MoonCultureArticles || [])];
-    const articleMap = new Map(articles.map(article => [article.id, article]));
-    const kinds = { health: '身体照护', tcm: '中医常识与编辑建议', editorial: '照护安排', culture: '自选文化灵感' };
-    function renderAdvice(card, index = null) {
-      if (!card) return '';
-      const ids = [...new Set(card.articleIds || [])].filter(id => articleMap.has(id));
-      return `<article class="advice-card ${card.urgency === 'medical' ? 'advice-medical' : ''}" data-advice-id="${escape(card.id)}"><div class="advice-card-top"><span>${index === null ? escape(kinds[card.kind] || '照护建议') : String(index + 1).padStart(2, '0')}</span>${card.urgency === 'medical' ? '<strong>优先处理</strong>' : ''}</div><h4>${escape(card.title)}</h4><p>${escape(card.body)}</p><details class="advice-evidence"><summary>为什么这样建议${ids.length ? ' · ' + ids.length + ' 条依据' : ''}</summary><p>${escape(card.reason || '结合她的实际表达与这一天的记录整理。')}</p><div class="companion-links">${ids.map(id => `<button class="small-link" data-read-article="${escape(id)}">${escape(articleMap.get(id).title)} ↗</button>`).join('')}</div></details></article>`;
-    }
-    $('#companion-guide').innerHTML = `<div class="companion-heading"><div><span class="pill">${escape(plan.phaseLabel)}</span><h2 id="advice-title">这一天的综合照护建议</h2><p>${escape(plan.headline)}</p></div><button class="small-link" id="advice-adjust-checkin" ${selected > today ? 'disabled' : ''}>${selected > today ? '感受到当天再填写' : '调整当天情况 ↓'}</button></div><div class="advice-context">${(plan.contextNotes || []).map(note => `<span>${escape(note)}</span>`).join('')}</div><div class="advice-section"><h3>先做这几件事</h3><div class="advice-priorities">${(plan.priorities || []).map(renderAdvice).join('')}</div></div><div class="advice-section"><h3>饮食与日常调护</h3><div class="advice-secondary">${(plan.tcm || []).map(card => renderAdvice(card)).join('')}</div></div><div class="advice-section"><h3>怎样陪伴，哪些先避开</h3><div class="advice-secondary">${renderAdvice(plan.support)}${(plan.avoid || []).map(card => renderAdvice(card)).join('')}</div></div><div class="companion-ask"><strong>可以这样问她</strong><p>“${escape(plan.ask)}”</p></div>${plan.culture ? `<details class="advice-culture"><summary>再选一点生活灵感 · 可跳过</summary>${renderAdvice(plan.culture)}<p>文化灵感不参与身体风险或治疗判断。</p></details>` : ''}<p class="advice-footnote">建议结合已核对的经期与中医知识、当天填写内容及本人偏好整理。展开“为什么这样建议”可看依据；感受变化时可随时调整。</p>`;
+    $('#companion-guide').innerHTML = window.MoonAdviceView.render(plan, {articles, canAdjust: selected <= today});
     $('#advice-adjust-checkin').addEventListener('click', () => { $('#checkin-form').scrollIntoView({ behavior: state.quiet ? 'instant' : 'smooth', block: 'start' }); $('#pain').focus({ preventScroll: true }); });
     window.MoonLibrary?.refresh(); window.MoonAI?.refresh();
   }
+  function openAdvice() { revealAdvice = true; if (location.hash === '#today') navigate('today'); else location.hash = 'today'; }
   function renderDataNotice() {
     $('#data-notice').hidden = !dataReadError;
     if (dataReadError) $('#data-notice').innerHTML = '现有记录暂时无法读取，已保留原始数据并暂停保存。<button class="small-link" data-open="data-dialog">导出或管理数据 →</button>';
@@ -493,7 +498,8 @@
   // Refresh the visible date when a tab resumes on a new Shanghai calendar day.
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { const now = C.todayISO(); if (now !== today) { const wasToday = selected === today; today = now; if (wasToday) selected = now; renderAll(); } } });
   window.MoonLibrary?.init({
-    getContext: () => ({ date: selected, adviceArticleIds: currentAdviceDate === selected ? currentAdvice?.selectedArticleIds : [], info: getInfo(), mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value, culture: state.culture, quiet: state.quiet, birthday: state.birthday, birthConfirmed: state.birthConfirmed }),
+    getContext: () => ({ date: selected, adviceArticleIds: currentAdviceDate === selected ? currentAdvice?.selectedArticleIds : [], adviceDaily: currentAdviceDate === selected ? currentAdvice?.daily : null, info: getInfo(), mood, pain: $('#pain').value === '' ? null : Number($('#pain').value), energy: $('#energy').value, culture: state.culture, quiet: state.quiet, birthday: state.birthday, birthConfirmed: state.birthConfirmed }),
+    openAdvice, refreshAdvice: renderCompanion,
     setCulture: enabled => { saveChange(next => { next.culture = enabled; if (enabled) next.quiet = false; }); renderAll(); },
     changeDay,
     notify: toast

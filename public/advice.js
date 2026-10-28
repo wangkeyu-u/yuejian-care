@@ -234,12 +234,58 @@
     const ordinal = context.date ? Math.trunc(Date.parse(context.date + 'T00:00:00Z') / 86400000) : 0;
     const theme = ((ordinal % 6) + 6) % 6;
     const element = ['木', '火', '土', '金', '水'].includes(context.cultureInfo.element) ? context.cultureInfo.element : '';
-    const label = text(context.cultureInfo.label, 60);
-    const inspiration = text(context.cultureInfo.inspiration, 140) || '听一首她喜欢的歌，或留一小段空白';
+    const label = text(context.cultureInfo.label, 160);
+    const birthSymbols = text(context.cultureInfo.birthSymbols, 180);
+    const inspiration = (text(context.cultureInfo.inspiration, 140) || '听一首她喜欢的歌，或留一小段空白').replace(/[。！？]+$/, '');
     const symbol = [label, element ? '元素标签：' + element : ''].filter(Boolean).join(' · ');
-    let body = (symbol ? symbol + '。' : '') + '可选生活灵感：“' + inspiration + '”。她愿意才做，也可以什么都不选。' + CULTURE_CONTEXTS[theme];
+    let body = (symbol ? symbol + '。' : '') + (birthSymbols ? birthSymbols + '。' : '') + '可选生活灵感：“' + inspiration + '”。她愿意才做，也可以什么都不选。' + CULTURE_CONTEXTS[theme];
     if (theme === 2) body += context.cultureInfo.birthKnown === true ? '生日已确认也不等于出生时刻齐全。' : '未确认生日也不影响普通照护。';
-    return card('culture-' + theme, '给这一天一点可取消的生活灵感', body, '你开启了文化栏目；文字和活动配搭是编辑选择，不改变上面的照护与求助安排。', [CULTURE_RULES[theme]], 'culture');
+    return card('culture-' + theme, '把自选仪式放进今天的休息空档', body, '你开启了文化栏目；文字和活动配搭是编辑选择，不改变上面的照护与求助安排。', unique([CULTURE_RULES[theme], 'culture-day-symbol', ...(birthSymbols ? ['culture-calendar-year', 'culture-aesthetic'] : [])]), 'culture');
+  }
+  function integrateDay(context, stage, plan, medical) {
+    const byId = new Map([...plan.priorities, ...plan.tcm, ...plan.avoid, plan.support].map(item => [item.id, item]));
+    const mergeIds = items => unique(items.filter(Boolean).flatMap(item => item.articleIds));
+    const low = context.energy === 'low' || (context.pain !== null && context.pain >= 5);
+    const painful = context.pain !== null && context.pain > 0;
+    const poorSleep = context.sleep === 'poor';
+    const tense = ['紧绷', '很难受'].includes(context.mood);
+    const alone = context.partner.support === 'alone';
+    const phase = byId.get('phase-' + stage.key) || plan.priorities.find(item => item.id.startsWith('phase-'));
+    const adjustment = byId.get('adjust-today');
+    const meal = byId.get('tcm-daily-care');
+    const herbal = byId.get('tcm-herbal-review');
+    const topics = byId.get('optional-planning');
+    const actions = [];
+    if (medical) actions.push({...byId.get('medical-first'), timing:'现在优先', steps:[byId.get('medical-first').body], sources:['身体照护']});
+    let immediate = phase.body;
+    if (low && !medical) immediate = '先把非必要的外出或长时间安排缩短，接手一件她愿意交给你的事务，让她能休息。' + (stage.key === 'reference' ? '结束或开始状态尚未确认，先核对真实记录。' : stage.key === 'delayed' ? '实际开始日仍待确认，不为对齐日历补造日期。' : '');
+    const steps = [immediate];
+    if (painful && !medical && ['during','reference'].includes(stage.key) && !/温热敷/.test(immediate)) steps.push('她想试时，可准备隔布温热敷或温水淋浴，温度以舒服为准；更不舒服就停下。');
+    if (context.topics.includes('movement') && !medical) steps.push('活动只保留散步等轻柔选项，舒服才做，可以随时缩短或停止。');
+    if (context.topics.includes('products')) steps.push('把她熟悉的用品准备好，按包装要求更换和清洁；是否换用其他用品由她决定。');
+    actions.push({id:phase.id,timing:medical?'求助安排之后':'先减轻负担',title:medical?'其他安排先保持简单':low?'把今天改成低负担版本':phase.title,steps,reason:phase.reason + (low ? ' 已填写低精力或疼痛至少5/10，因此缩短安排。' : ''),articleIds:mergeIds([phase,adjustment,topics]),sources:['周期记录','身体照护','照护安排'],kind:'editorial'});
+    const mealSteps = [low ? '把她愿意吃、实际能接受的普通一餐准备好，留足饮水，减少她为吃饭操心的事。' : '照常准备她能接受的均衡一餐和饮水，温度、份量按她的实际感受选择。'];
+    mealSteps.push('若已有中药相关忌口，问清开方医师针对什么情况、持续多久；今天不自动加调经茶、补药或药膳。');
+    if (herbal) mealSteps.push('你想了解中药或药膳：先把完整成分和现用中西药、补充剂列在一起，请医师或药师核对，不自行加量或混用。');
+    actions.push({id:'day-meal',timing:'吃饭与饮水',title:low?'把一餐准备好，少让她费心':'吃她能接受的普通一餐',steps:mealSteps,reason:'把经期均衡饮食的资料、中医服药忌口的适用条件和药食相互作用知识合在同一次安排里；分担做饭是编辑建议。' + (herbal ? ' 你还选择了中药或药膳主题。' : ''),articleIds:mergeIds([meal,herbal]),sources:['身体照护','中医用药常识','照护安排'],kind:'tcm'});
+    const restSteps = [];
+    if (poorSleep) restSteps.push('今晚提前收尾，减少晚间咖啡因和屏幕刺激，尽量保持稳定起床时间；睡眠持续影响白天生活时记录并求助。');
+    if (tense) restSteps.push('一次只说一件事，减少解释和马上回复的压力；情绪持续影响日常生活时协助寻求专业支持，不先归因于经期。');
+    restSteps.push(alone ? '按她已表达的选择留出独处，不连续追问、不要求回复或见面；用品和帮忙方式按已经确认的约定来。' : context.partner.support === 'quiet' ? '她愿意时安静陪着，不让她负责聊天或主持气氛，想结束陪伴就调整。' : context.partner.support === 'help' ? '给出买用品、准备一餐或分担家务中的一个选项，确认后完成这一件。' : '先问一次她想要哪种支持，没有回应时留出空间，不替她决定。');
+    actions.push({id:'day-rest',timing:'休息与相处',title:poorSleep?'今晚早点收尾，按她的方式休息':alone?'把不被打扰的时间留给她':'按她的回答安排陪伴',steps:restSteps,reason:adjustment ? adjustment.reason + ' 陪伴方式来自她明确选择的支持选项。' : plan.support.reason,articleIds:mergeIds([adjustment,plan.support]),sources:[...(poorSleep||tense?['睡眠与情绪资料']:[]),'本人偏好','照护安排'],kind:'editorial'});
+    const facts = [plan.phaseLabel];
+    if (Number.isFinite(context.info.day) && ['during','reference'].includes(stage.key)) facts.push((stage.key==='during'?'经期第 ':'参考周期第 ')+context.info.day+' 天');
+    if (context.pain !== null) facts.push('疼痛 '+context.pain+'/10');
+    if (context.energy) facts.push({low:'精力偏低',medium:'精力还可以',high:'精力充足'}[context.energy]);
+    if (poorSleep) facts.push('睡眠不好');
+    if (context.flow === 'heavy') facts.push('出血明显偏多');
+    if (context.flow === 'unexpected') facts.push('经期外出血');
+    if (context.mood) facts.push(context.mood);
+    facts.push({alone:'希望独处',quiet:'希望安静陪伴',help:'希望具体帮助',ask:'支持方式先询问'}[context.partner.support]);
+    const hasObservation = context.pain !== null || context.energy || context.sleep || context.flow || context.mood;
+    const summary = (medical ? '先落实疼痛或出血的医疗求助，其他安排保持简单。' : low ? '今天先缩短安排、接手一件事务，留出休息。' : stage.key === 'before' ? '先备好熟悉的用品，给行程留出调整余地。' : stage.key === 'after' ? '按实际精力恢复日常，记下这次有帮助的小事。' : stage.key === 'during' ? '把今天要做的事减到她能接受的程度。' : '先确认愿意分享的记录，再商量一件具体帮助。') + (poorSleep?'一餐照常准备，今晚提前收尾。':'饮食按实际耐受，先准备普通一餐。') + (alone?'她想独处，支持就以不打扰为主。':'陪伴按她今天的选择来。');
+    const culture = plan.culture ? {...plan.culture,arrangement:(alone?'把下面的灵感留给她自己选择，不另安排必须见面或回应的仪式。':low?'如果她愿意，把灵感放在休息空档，用坐着或躺着也能完成的版本。':'如果她愿意，把灵感放进今天已经留出的空闲时间。') + '选过的仪式会显示在这里，也可以留白。'} : null;
+    return {summary,facts,hasObservation:!!hasObservation,actions,message:medical&&!alone?'我可以帮你联系医生或安排交通，你希望我怎样协助？':plan.ask,preferences:{likes:context.partner.likes,avoid:context.partner.avoid},followUp:plan.tcm.filter(item=>item.id!=='tcm-daily-care'&&item.id!=='tcm-herbal-review').concat(context.topics.includes('tcm')?[meal]:[]),avoid:plan.avoid,culture};
   }
   function buildPlan(rawContext = {}) {
     const context = normalize(rawContext), stage = stageOf(context), signals = medicalSignals(context);
@@ -262,7 +308,9 @@
     const name = context.partner.nickname || '她';
     const headline = medical ? '先把' + name + '的实际不适放在前面。' : context.future ? '为这一天留好选择，真正的感觉到时再确认。' : stage.key === 'during' ? '把关心落到今天能减轻负担的小事里。' : '结合实际记录，安排今天能做的一点照护。';
     const allCards = [...priorities.slice(0, 4), support, ...tcm, ...avoid, ...(culture ? [culture] : [])];
-    return { phaseLabel, certainty: context.future ? 'predicted' : stage.certainty, headline, contextNotes, priorities: priorities.slice(0, 4), support, tcm, avoid, culture, ask, selectedArticleIds: unique(allCards.flatMap(item => item.articleIds)), consideredCount: knownIds.size };
+    const plan = { phaseLabel, certainty: context.future ? 'predicted' : stage.certainty, headline, contextNotes, priorities: priorities.slice(0, 4), support, tcm, avoid, culture, ask, selectedArticleIds: unique(allCards.flatMap(item => item.articleIds)), consideredCount: knownIds.size };
+    plan.daily = integrateDay(context, stage, plan, medical);
+    return plan;
   }
   function getRuleCoverage() { return RULES.map(rule => ({ ...rule, articleIds: rule.articleIds.slice() })); }
   return { buildPlan, getRuleCoverage };

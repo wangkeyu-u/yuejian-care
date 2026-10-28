@@ -599,3 +599,85 @@ dialog::backdrop { background: #28342166; }
 .import-label { display: block; margin: 24px 0 10px; font-size: 15px; }
 .import-label input { width: 100%; margin-top: 10px; min-height: 44px; }
 @media(max-width:700px) { .forecast-panel { padding: 20px; } .forecast-panel .section-heading { flex-wrap: wrap; } .forecast-dates strong { font-size: 23px; } .ai-panel .section-heading { flex-wrap: wrap; } .ai-panel .button { white-space: normal; } .ai-result { padding: 20px 16px; } }
+
+/* A single daily plan, ordered by the moments when care is useful. */
+.cycle-overview { margin: 0 0 22px; border-block: 1px solid var(--line); }
+.cycle-overview > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; min-height:64px; padding:12px 0; font-size:16px; color:var(--ink); }
+.cycle-overview > summary span:last-child { font-size:14px; color:var(--muted); text-align:right; }
+.cycle-overview .hero { margin-top:12px; }
+.cycle-overview .forecast-panel { margin-bottom:20px; }
+.cycle-overview > summary:focus-visible, .day-followup > summary:focus-visible, .day-preferences > summary:focus-visible { outline:2px solid var(--focus); outline-offset:4px; }
+.companion-guide { scroll-margin-top:24px; }
+.day-plan-summary { max-width:68ch; margin:18px 0; font-size:18px; line-height:1.9; color:var(--ink); text-wrap:pretty; }
+.advice-context { margin:0 0 20px; }
+.advice-empty-note { font-size:14px; color:var(--muted); margin:0 0 20px; max-width:70ch; }
+.day-plan-actions { display:block; }
+.day-action { display:grid; grid-template-columns:110px minmax(0,1fr); gap:24px; padding:26px 0; border-top:1px solid var(--line-strong); }
+.day-action-time { color:var(--sage); font-size:15px; padding-top:3px; }
+.day-action h3 { font-family:var(--sans); font-weight:500; font-size:21px; line-height:1.6; margin:0 0 14px; }
+.day-action ul { list-style:disc; padding-left:20px; max-width:68ch; }
+.day-action li { font-size:16px; line-height:1.95; padding:0 0 8px 4px; }
+.day-action-sources { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:8px; color:var(--muted); font-size:13px; }
+.day-action-sources span + span:before { content:'＋'; margin-right:12px; }
+.day-action .advice-evidence { margin-top:2px; }
+.advice-evidence .companion-links { display:flex; flex-direction:column; align-items:flex-start; gap:0; }
+.advice-evidence .companion-links .small-link { text-align:left; white-space:normal; min-height:44px; }
+.advice-evidence .companion-links .small-link > span { color:var(--muted); font-size:13px; margin-right:6px; }
+.day-action.advice-medical { border:1px solid #c59785; border-radius:12px; background:var(--rose-light); padding:22px; margin-bottom:12px; }
+.day-action.advice-medical .day-action-time { color:var(--rose); font-weight:500; }
+.day-preferences, .day-followup { border-top:1px solid var(--line); margin-top:18px; }
+.day-preferences > summary, .day-followup > summary { min-height:52px; display:flex; align-items:center; cursor:pointer; color:var(--sage); font-size:15px; }
+.day-preferences p { margin:8px 0; }
+.day-followup article { padding:16px 0; max-width:72ch; }
+.day-followup h3, .day-avoid h3, .day-culture h3 { font-family:var(--sans); font-size:18px; font-weight:500; margin-bottom:10px; }
+.day-followup article > p, .day-culture > p { font-size:15px; line-height:1.95; }
+.day-avoid { padding:22px 0; border-top:1px solid var(--line); margin-top:22px; }
+.day-avoid > ul { padding-left:20px; }
+.day-avoid > ul > li { margin-top:12px; padding-left:4px; font-size:15px; }
+.day-avoid strong { font-weight:500; }
+.day-avoid summary { min-height:44px; cursor:pointer; font-size:14px; color:var(--sage); padding-top:8px; }
+.day-avoid details p { max-width:70ch; font-size:14px; }
+.day-culture { padding:22px; border:1px solid var(--line-strong); border-radius:12px; background:var(--sidebar); margin:18px 0; }
+.day-culture .section-heading { flex-wrap:wrap; margin-bottom:12px; }
+.day-culture > p { margin:10px 0; }
+.ai-result { border:1px solid var(--line-strong); border-radius:12px; }
+.knowledge-plan-bridge { background:var(--sage-light); border-radius:12px; padding:24px; margin:24px 0 32px; }
+.knowledge-plan-bridge .section-heading { flex-wrap:wrap; align-items:center; }
+.knowledge-plan-bridge h2 { font-family:var(--sans); font-size:21px; line-height:1.6; }
+.knowledge-plan-bridge .section-heading p { margin-top:6px; font-size:14px; color:var(--muted); }
+.bridge-summary { font-size:16px; line-height:1.9; max-width:72ch; margin:18px 0; }
+.bridge-actions { display:flex; flex-direction:column; gap:18px; margin:20px 0; }
+.bridge-actions > div { max-width:72ch; }
+.bridge-actions strong { font-size:15px; font-weight:500; }
+.bridge-actions p { font-size:14px; margin-top:6px; line-height:1.9; }
+.article-application { background:var(--sage-light); border-radius:10px; padding:18px; margin:20px 0; }
+.article-application strong { font-size:16px; font-weight:500; }
+.article-application p { font-size:14px; line-height:1.9; margin-top:8px; }
+@media(max-width:700px) {
+  .day-plan-summary { font-size:17px; }
+  .day-action { grid-template-columns:1fr; gap:8px; padding:22px 0; }
+  .day-action-time { font-size:14px; }
+  .day-action h3 { font-size:20px; }
+  .day-action li { font-size:16px; }
+  .day-action.advice-medical { padding:18px; }
+  .day-culture, .knowledge-plan-bridge { padding:20px 16px; }
+  .cycle-overview > summary { align-items:flex-start; flex-direction:column; gap:4px; }
+  .cycle-overview > summary span:last-child { text-align:left; }
+  .knowledge-plan-bridge .button { width:100%; justify-content:center; }
+}
+.companion-ask { border:0; border-radius:10px; }
+.companion-heading { margin-bottom:12px; }
+.day-plan-summary { margin:12px 0 18px; }
+@media(max-width:700px) {
+  .today-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; margin:20px 0; }
+  .today-heading > div { display:contents; }
+  .today-heading h1 { font-size:24px; margin:0; grid-column:1; grid-row:1; }
+  .today-heading .button { grid-column:2; grid-row:1; padding-inline:12px; }
+  .today-heading p { grid-column:1/-1; grid-row:2; font-size:14px; }
+  .companion-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; }
+  .companion-heading h2 { font-size:22px; }
+  .companion-heading .small-link { font-size:14px; }
+  .day-plan-summary { margin-top:8px; }
+}
+.culture-background > summary { min-height:44px; cursor:pointer; color:var(--warm-ink); font-size:15px; display:flex; align-items:center; }
+.culture-background[open] > summary { margin-bottom:24px; }

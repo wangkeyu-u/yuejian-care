@@ -33,13 +33,13 @@ Node：`require('./public/advice.js')`。浏览器：`window.MoonAdvice`；需�
 {
   phaseLabel, certainty, headline, contextNotes,
   priorities, support, tcm, avoid, culture, ask,
-  selectedArticleIds, consideredCount
+  selectedArticleIds, consideredCount, daily
 }
 ```
 
 每张卡片含 `id`、`title`、`body`、`reason`、`articleIds`、`kind`；优先医疗卡另有 `urgency: 'medical'`。`reason` 写明本次触发依据，`articleIds` 指向现有原文与来源。`consideredCount` 是已加载知识库的唯一文章数，当前为 48；并不表示把 48 篇全文全部显示在一天里。
 
-主要安排最多 4 张，依次是：实际不适的医疗求助、周期位置对应的弹性安排、睡眠/精力/情绪的减负调整、用户选择的活动与用品内容。伴侣沟通、中医综合与需避开事项分栏呈现；文化始终在独立的可选栏目。
+底层规则卡保留用于核查和 AI 输入。页面使用 `daily` 把它们重新组织为同一份方案：先减轻负担、吃饭与饮水、休息与相处；有医疗优先信号时在最前加入求助。饮食项同时合并经期饮食资料、中医服药忌口条件和可选草药核对；休息项同时使用睡眠/情绪资料与本人支持选择，不把知识分栏堆在页面上。每项保留来源 ID、具体触发原因和资料性质，医疗卡不因重新组织而消失。
 
 ## 医疗优先规则
 
@@ -104,3 +104,14 @@ Node：`require('./public/advice.js')`。浏览器：`window.MoonAdvice`；需�
 ### 仅依据本人表达的编辑建议
 
 `support-choice` 不引用临床文章：通用陪伴话术来自明确支持选项与编辑安排，不因普通沟通需求而关联焦虑知识。参考经期的用品准备另关联 `health-products`。医疗优先卡只说明落实求助与普通日常照护的边界，针灸与艾灸的证据和风险由选中主题后的独立卡片承担。
+
+## 页面与百科如何衔接（2026-10-28）
+
+`daily` 包含 `summary`、`facts`、`actions`、`message`、`preferences`、`followUp`、`avoid`、`culture`。常规方案三项，有医疗优先时四项；未填感受只给通用安排，未来不确认症状。
+
+- `public/advice-view.js` 将同一份数据渲染成按实际安排顺序阅读的方案，不改变周期数据。
+- 百科顶部使用当前方案的摘要与行动，文章显示其被哪些行动引用；没有触发条件的资料不硬加到当天。
+- 文化启用后，手记所选元素和仪式同步到方案的可选休息空档；独处、精力等只调整活动安排，不用生肖决定健康措施。关闭文化不改变医学、饮食和陪伴建议。出生年干与日干关系标为两枚传统符号的比较。
+- 经期日期与预测收在可展开区域，保留直接记录入口；API 分析和原文阅读位于当前方案之后。
+
+本次重新打开核查了 NHS 痛经、PMS、睡眠与香港卫生署中药服药忌口原文；未声称全库于本日重新审查，也未添加新的疗效承诺。各文章原有核对日期与支持范围继续保留。

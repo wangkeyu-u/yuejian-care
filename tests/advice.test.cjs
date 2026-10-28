@@ -187,3 +187,43 @@ test('all 48 articles are traceable, every output reference exists, and coverage
   coverage[0].articleIds.push('invented'); coverage[0].when = 'changed';
   assert.ok(!JSON.stringify(Advice.getRuleCoverage()).includes('invented'));
 });
+
+test('daily plan combines symptoms, food knowledge and expressed support into one ordered arrangement', () => {
+  const plan=Advice.buildPlan({...base(),info:actualPeriod(),pain:5,energy:'low',sleep:'poor',partner:{support:'alone'},topics:['herbal']});
+  const daily=plan.daily;
+  assert.equal(daily.actions.length,3);
+  assert.match(daily.summary,/缩短安排.*今晚提前收尾.*独处/);
+  assert.match(daily.actions[0].steps.join(''),/隔布温热敷/);
+  assert(daily.actions[0].articleIds.includes('health-heat-bath'));
+  const meal=daily.actions.find(item=>item.id==='day-meal');
+  assert(meal.articleIds.includes('health-cold-drinks'));
+  assert(meal.articleIds.includes('tcm-diet-conditions'));
+  assert(meal.articleIds.includes('tcm-herbal-safety'));
+  assert.match(meal.steps.join(''),/普通一餐.*开方医师.*完整成分/);
+  const rest=daily.actions.find(item=>item.id==='day-rest');
+  assert.match(rest.steps.join(''),/晚间咖啡因.*不要求回复或见面/);
+  assert(rest.articleIds.includes('health-sleep'));
+  assert.match(daily.message,/先不打扰/);
+  for(const item of daily.actions)assert(item.articleIds.every(id=>plan.selectedArticleIds.includes(id)));
+});
+
+test('daily arrangements respect missing symptoms, medical priority and future uncertainty', () => {
+  const plain=Advice.buildPlan(base()).daily;
+  assert.equal(plain.hasObservation,false);
+  assert.doesNotMatch(plain.actions.map(item=>item.steps.join('')).join(''),/隔布温热敷|今晚提前收尾/);
+  const medical=Advice.buildPlan({...base(),info:actualPeriod(),pain:8,culture:true});
+  assert.equal(medical.daily.actions[0].id,'medical-first');
+  assert.equal(medical.daily.culture,null);
+  assert.equal(medical.daily.actions.length,4);
+  const future={...base(),date:'2026-11-23',info:actualPeriod('2026-11-23')};
+  assert.deepEqual(Advice.buildPlan({...future,pain:10,sleep:'poor',flow:'heavy'}).daily,Advice.buildPlan(future).daily);
+});
+
+test('culture adds an optional moment without changing any health arrangements', () => {
+  const context={...base(),info:actualPeriod(),energy:'low',partner:{support:'alone'}};
+  const off=Advice.buildPlan(context).daily;
+  const on=Advice.buildPlan({...context,culture:true,cultureInfo:{element:'金',label:'自选元素',inspiration:'读几页熟悉的书',birthSymbols:'只比较两枚传统符号'}}).daily;
+  assert.deepEqual({...on,culture:null},off);
+  assert.match(on.culture.body,/读几页熟悉的书/);
+  assert.match(on.culture.arrangement,/不另安排必须见面/);
+});

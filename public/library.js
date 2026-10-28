@@ -49,6 +49,19 @@
   const kindNames = { health: '经期知识', tcm: '中医常识', culture: '传统文化' };
   const basisNames = { clinical: '医学资料', traditional: '传统理论', editorial: '编辑建议', mixed: '资料与编辑整理' };
   function evidenceLabel(article) { return basisNames[article.verification?.basis] || '来源待核对'; }
+  function renderApplication(article) {
+    const daily = context().adviceDaily;
+    const used = daily?.actions.filter(item => item.articleIds.includes(article.id)) || [];
+    if (daily?.culture?.articleIds.includes(article.id)) used.push({title:'休息空档的一点仪式感'});
+    return `<aside class="article-application"><strong>这条知识怎样用到这一天</strong><p>${used.length ? '已用于：' + used.map(item=>esc(item.title)).join('；') + '。' : '当前记录没有触发这条知识的具体安排，先保留为需要时查阅的资料，不把每一条知识强套到每一天。'}</p><button class="small-link" data-show-advice>查看合成后的照护方案 →</button></aside>`;
+  }
+  function renderPlanBridge() {
+    const daily = context().adviceDaily;
+    if (!daily) { $('#knowledge-plan-bridge').hidden=true; return; }
+    $('#knowledge-plan-bridge').hidden=false;
+    const items = [daily.actions[0], daily.actions.find(item=>item.id==='day-meal')].filter(Boolean);
+    $('#knowledge-plan-bridge').innerHTML=`<div class="section-heading"><div><h2 id="knowledge-plan-title">知识已经用在这一天的安排里</h2><p>${esc(context().date)} · 根据日期与已填写的感受整理</p></div><button class="button outline" data-show-advice>看完整照护方案 →</button></div><p class="bridge-summary">${esc(daily.summary)}</p><div class="bridge-actions">${items.map(item=>`<div><strong>${esc(item.timing)} · ${esc(item.title)}</strong><p>${esc(item.steps[0])}</p></div>`).join('')}</div><p class="fine muted">下方是原文资料。打开文章，可以看到它具体用在了哪一项安排里。</p>`;
+  }
   function renderArticle() {
     const a = articleById.get(openArticleId); if (!a) return;
     const saved = memory.bookmarks.includes(a.id);
@@ -57,6 +70,7 @@
     const relatedIds = a.kind === 'tcm' ? ['health-urgent-pain', 'health-medication'] : a.kind === 'culture' ? ['health-first-day'] : ['health-cycle-day-one', 'health-urgent-pain'];
     const related = relatedIds.filter(id => id !== a.id).map(id => articleById.get(id)).filter(Boolean);
     $('#article-body').innerHTML = `<div class="article-topline"><span class="article-kind ${a.kind}">${esc(kindNames[a.kind])} · ${esc(a.category)}</span><button class="article-save" data-bookmark="${a.id}" aria-pressed="${saved}">${saved ? '已收藏 ✓' : '收藏这条 ＋'}</button></div><h2 id="article-title">${esc(a.title)}</h2><p class="article-deck">${esc(a.summary)}</p><aside class="article-evidence" aria-label="资料性质与核对信息"><div><strong>${esc(evidenceLabel(a))}</strong><span>${verification ? '来源核对：' + esc(verification.checkedAt) : '尚未完成来源核对'}</span></div><p>${esc(verification?.note || '暂不将本条作为已核实的知识。')}</p></aside><div class="article-paragraphs">${a.body.map((p, paragraphIndex) => `<p>${esc(p)}${(a.paragraphSources?.[paragraphIndex] || []).filter(index => a.sources[index]).map(index => `<a class="paragraph-source" href="${esc(a.sources[index].url)}" target="_blank" rel="noopener noreferrer" aria-label="本段来源 ${index + 1}：${esc(a.sources[index].title)}">[${index + 1}]</a>`).join('')}</p>`).join('')}</div><div class="article-tags">${a.tags.map(tag => `<span>${esc(tag)}</span>`).join('')}</div><div class="article-sources"><h3>原文与引用范围</h3>${a.sources.filter(source => /^https:\/\//.test(source.url)).map((source, i) => `<div class="article-source"><a href="${esc(source.url)}" target="_blank" rel="noopener noreferrer"><span>[${i + 1}]</span> ${esc(source.title)} ↗</a><p>${esc(supports.get(source.url) || '本来源尚未注明支持范围。')}</p></div>`).join('')}${a.kind === 'culture' ? '<p>生活仪式和颜色配搭属于编辑设计。引用历法资料不表示来源机构认可命理对健康或吉凶的解释。</p>' : a.kind === 'tcm' ? '<p>中医科普用于了解理论和就医沟通。疗法是否适合个人，需要由合资格专业人员结合具体情况判断。</p>' : ''}</div><div class="article-related"><h3>继续了解身体照护</h3>${related.map(row => `<button data-read-article="${row.id}">${esc(row.title)} <span>→</span></button>`).join('')}</div>`;
+    $('#article-body .article-evidence').insertAdjacentHTML('afterend',renderApplication(a));
     $('#article-dialog').setAttribute('aria-labelledby', 'article-title');
   }
   function card(article) {
@@ -89,6 +103,7 @@
     if (kind === 'culture' && enabled) renderRitual();
     if ($('#article-dialog').open && articleById.get(openArticleId)?.kind === 'culture' && !enabled) $('#article-dialog').close();
     renderDaily();
+    renderPlanBridge();
   }
   function renderDaily() {
     const c = context();
@@ -137,13 +152,14 @@
       const tab = e.target.closest('[data-library-kind]'); if (tab) setKind(tab.dataset.libraryKind);
       const filter = e.target.closest('[data-library-category]'); if (filter) { category = filter.dataset.libraryCategory; visibleCount = 8; render(); }
       const read = e.target.closest('[data-read-article]'); if (read) readArticle(read.dataset.readArticle);
+      if (e.target.closest('[data-show-advice]')) { if ($('#article-dialog').open) $('#article-dialog').close(); api.openAdvice(); }
       const bookmark = e.target.closest('[data-bookmark]'); if (bookmark && articleById.has(bookmark.dataset.bookmark)) { const id = bookmark.dataset.bookmark; memory.bookmarks = memory.bookmarks.includes(id) ? memory.bookmarks.filter(key => key !== id) : [...memory.bookmarks, id]; save(); render(); if ($('#article-dialog').open) renderArticle(); }
       if (e.target.closest('[data-library-enable]')) api.setCulture(true);
       if (e.target.closest('[data-library-disable]')) api.setCulture(false);
       if (e.target.closest('[data-open-culture-library]')) showCulture();
-      const choice = e.target.closest('[data-ritual-element]'); if (choice) { const value = choice.dataset.ritualElement; if (value === 'auto') delete memory.elementsByDate[context().date]; else if (elements.includes(value)) memory.elementsByDate[context().date] = value; save(); renderRitual(); }
-      const option = e.target.closest('[data-ritual-option]'); if (option && elements.includes(option.dataset.element)) { memory.plans[context().date] = { element: option.dataset.element, option: Number(option.dataset.ritualOption) }; save('已为这一天留下一点自己的仪式感。'); renderRitual(); }
-      if (e.target.closest('[data-ritual-clear]')) { delete memory.plans[context().date]; save('这一天的仪式安排已留白。'); renderRitual(); }
+      const choice = e.target.closest('[data-ritual-element]'); if (choice) { const value = choice.dataset.ritualElement; if (value === 'auto') delete memory.elementsByDate[context().date]; else if (elements.includes(value)) memory.elementsByDate[context().date] = value; save(); renderRitual(); api.refreshAdvice(); }
+      const option = e.target.closest('[data-ritual-option]'); if (option && elements.includes(option.dataset.element)) { memory.plans[context().date] = { element: option.dataset.element, option: Number(option.dataset.ritualOption) }; save('已放进这一天的照护方案，可随时取消。'); renderRitual(); api.refreshAdvice(); }
+      if (e.target.closest('[data-ritual-clear]')) { delete memory.plans[context().date]; save('这一天的仪式安排已留白。'); renderRitual(); api.refreshAdvice(); }
     });
     $('#article-dialog').addEventListener('close', () => {
       openArticleId = null;
@@ -157,5 +173,6 @@
     render();
   }
   function clear() { localStorage.removeItem(STORAGE_KEY); memory = { bookmarks: [], elementsByDate: {}, plans: {} }; render(); }
-  window.MoonLibrary = { init, refresh: render, exportState: () => structuredClone(memory), clear, showCulture };
+  function getRitualSelection(date) { const plan=memory.plans[date]; return {element:plan?.element || memory.elementsByDate[date] || null,option:plan ? rituals[plan.element].options[plan.option] : null}; }
+  window.MoonLibrary = { init, refresh: render, exportState: () => structuredClone(memory), clear, showCulture, getRitualSelection };
 })();

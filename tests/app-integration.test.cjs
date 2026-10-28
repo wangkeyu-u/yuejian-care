@@ -2,12 +2,13 @@ const test=require('node:test');const assert=require('node:assert/strict');const
 const KEY='yuejian.personal.v1',root=path.resolve(__dirname,'../public');
 const period=(id,start,end)=>({id,start,end:end||null,status:end?'ended':'unknown'});
 const fixture=()=>({version:2,periods:[period('p','2026-10-20','2026-10-24')],cycleLength:28,periodLength:5,entries:{'2026-10-25':{mood:'平静',pain:2,energy:'medium',support:'',note:'fixed-date-note'}}});
-function app(data=fixture(),fetchImpl=async()=>{throw Error('network disabled in test')}){
+function app(data=fixture(),fetchImpl=async()=>{throw Error('network disabled in test')},library=null){
  const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'https://yuejian.test/#today',runScripts:'outside-only'}),w=dom.window;
  const RealDate=Date;w.Date=class extends RealDate{constructor(...args){super(...(args.length?args:['2026-10-26T04:00:00Z']));}static now(){return new RealDate('2026-10-26T04:00:00Z').getTime();}};
  w.structuredClone=structuredClone;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.AbortController=AbortController;w.fetch=fetchImpl;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  if(data!==null)w.localStorage.setItem(KEY,typeof data==='string'?data:JSON.stringify(data));
+ if(library!==null)w.localStorage.setItem('yuejian.library.v1',library);
  for(const script of [...w.document.querySelectorAll('script[src]')])w.eval(fs.readFileSync(path.join(root,script.getAttribute('src').split('?')[0]),'utf8'));
  return {dom,w,$:s=>w.document.querySelector(s),raw:()=>w.localStorage.getItem(KEY),close:()=>w.close()};
 }
@@ -69,5 +70,25 @@ test('invalid or oversized backup cannot replace current records',async()=>{
   const original=a.raw();for(const file of [{size:1,text:async()=>'{broken'},{size:3*1024*1024,text:async()=>JSON.stringify(fixture())},{size:20,text:async()=>JSON.stringify({periods:[period('bad','2026-10-24','2026-10-20')]})}]){
    Object.defineProperty(a.$('#import-file'),'files',{configurable:true,value:[file]});a.$('#import-file').dispatchEvent(new a.w.Event('change'));await new Promise(resolve=>setImmediate(resolve));assert.equal(a.$('#import-confirm').hidden,true);a.$('#import-confirm').click();assert.equal(a.raw(),original);
   }
+ }finally{a.close();}
+});
+
+test('the plan, knowledge bridge and article application use the same live observations',()=>{
+ const a=app();try{
+  change(a,'#pain','5');change(a,'#sleep','poor');a.$('[data-support="独处"]').click();
+  assert.match(a.$('#companion-guide .day-plan-summary').textContent,/今晚提前收尾.*独处/);
+  assert.equal(a.$('#knowledge-plan-bridge .bridge-summary').textContent,a.$('#companion-guide .day-plan-summary').textContent);
+  a.$('#daily-reading-list [data-read-article="tcm-diet-conditions"]').click();
+  assert.match(a.$('.article-application').textContent,/已用于.*一餐/);
+  a.$('.article-application [data-show-advice]').click();assert.equal(a.$('#view-today').hidden,false);assert.equal(a.$('#article-dialog').open,false);
+ }finally{a.close();}
+});
+
+test('a selected cultural ritual appears in the care plan immediately and survives reload',()=>{
+ const a=app();try{
+  a.$('#culture-entry').click();a.$('[data-library-kind="culture"]').click();a.$('[data-ritual-element="金"]').click();a.$('[data-ritual-option="1"][data-element="金"]').click();
+  assert.match(a.$('#companion-guide .day-culture').textContent,/读几页熟悉的书/);
+  const b=app(a.raw(),undefined,a.w.localStorage.getItem('yuejian.library.v1'));try{assert.match(b.$('#companion-guide .day-culture').textContent,/读几页熟悉的书/);}finally{b.close();}
+  a.$('[data-ritual-clear]').click();assert(!a.$('#companion-guide .day-culture').textContent.includes('可选生活灵感：“读几页熟悉的书”'));
  }finally{a.close();}
 });
