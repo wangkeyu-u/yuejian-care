@@ -47,3 +47,7 @@ API 测试使用模拟上游，不证明实际 Key 有权限或当前模型输�
 会话新增版本/根/来源依赖与 `privacyBlocks`，设置的隐私事务由 `memory-privacy.js` 统一提交并处理恢复屏障。详见 [以人为中心的记忆](LONG-TERM-MEMORY.md)。
 
 `signals` 模式只发送已同意的 `phaseEvidence` 片段，返回待人工核对的线索；不会返回可自动应用的阶段。普通分析由服务端重新构建 `phaseAssessment`，四领域与饮食围绕所选日期的阶段参考及实际情况展开；阶段不等于症状。见[CYCLE-PHASES.md](CYCLE-PHASES.md)。
+
+## 4.5 分期知识
+
+`phase-knowledge.js` 定义统一阶段/栏目/条目/来源。`day-context.js` 将当前阶段指南和明确询问/聚焦的其他指南加入已核对文章，附 `phaseKnowledge` 说明选择和六栏顺序；未知阶段不默认注入某一阶段指南。阅读其他阶段不修改实际分期。条目类型、条件及各期通用标记进入模型正文，逐段引用映射一并传递，避免常见症状变成本人事实。详见[知识组织与来源审计](PHASE-KNOWLEDGE.md)。
