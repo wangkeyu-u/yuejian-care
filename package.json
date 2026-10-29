@@ -1,6 +1,6 @@
 {
   "name": "yuejian-care",
-  "version": "4.5.1",
+  "version": "4.5.2",
   "private": true,
   "description": "Open-source, browser-local menstrual care for partners",
   "scripts": {

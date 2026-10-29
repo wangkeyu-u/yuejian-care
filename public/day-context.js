@@ -1,7 +1,8 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory(require('./core.js'),require('./periods.js'),require('./forecast.js'),require('./advice.js'),require('./vendor/lunar.js'),require('./memory.js'),require('./care-output.js'),require('./phases.js'),require('./phase-knowledge.js'));else root.MoonDayContext=factory(root.MoonCore,root.MoonPeriods,root.MoonForecast,root.MoonAdvice,{Solar:root.Solar},root.MoonMemory,root.MoonCareOutput,root.MoonPhases,root.MoonPhaseKnowledge);})(typeof globalThis!=='undefined'?globalThis:this,function(Core,Periods,Forecast,Advice,Lunar,Memory,CareOutput,Phases,PhaseKnowledge){
   'use strict';
-  const VERSION='day-context-4.5.1-consistency-20261028';
+  const VERSION='day-context-4.5.2-source-schema-20261029';
   const PSYCH=['health-sleep','health-pms','health-pmdd','health-anxiety-cycle'];
+  const articleSubjects=id=>id.startsWith('tcm-')?['tcm']:id.startsWith('culture-')?['culture']:PSYCH.includes(id)?['western','psychology']:['western'];
   const text=(v,n)=>typeof v==='string'?v.trim().slice(0,n):'';
   const one=(v,a,d='')=>a.includes(v)?v:d;
   const topics=['tcm','herbal','acupuncture','moxibustion','movement','products'];
@@ -55,8 +56,8 @@
     const queries=[['针灸',['tcm-acupuncture-evidence','tcm-acupuncture-safety']],['艾灸',['tcm-moxibustion-risk']],['中药|药膳|调经茶',['tcm-herbal-safety','tcm-food-herb-interactions','health-medication']],['用品|棉条|月经杯|清洗',['health-products','health-tampon-cup','health-vulva-cleaning']],['运动|游泳',['health-movement-swim']]];
     for(const [pattern,list]of queries)if(new RegExp(pattern).test(question))for(const id of list)ids.add(id);
     if(catalog.some(a=>a.id===focusArticleId))ids.add(focusArticleId);
-    const articles=catalog.filter(a=>ids.has(a.id)&&(clean.culture.enabled||!a.id.startsWith('culture-'))).map(a=>({id:a.id,subject:a.id.startsWith('tcm-')?'tcm':a.id.startsWith('culture-')?'culture':PSYCH.includes(a.id)?'psychology':'western',title:a.title,body:a.body,paragraphSources:a.paragraphSources,sources:a.sources,verification:a.verification,...(a.guideType==='phase'?{guideType:a.guideType,phase:a.phase}:{} )}));
+    const articles=catalog.filter(a=>ids.has(a.id)&&(clean.culture.enabled||!a.id.startsWith('culture-'))).map(a=>({id:a.id,subjects:articleSubjects(a.id),subject:a.id.startsWith('tcm-')?'tcm':a.id.startsWith('culture-')?'culture':PSYCH.includes(a.id)?'psychology':'western',title:a.title,body:a.body,paragraphSources:a.paragraphSources,sources:a.sources,verification:a.verification,...(a.guideType==='phase'?{guideType:a.guideType,phase:a.phase}:{} )}));
     return {phaseKnowledge:{version:PhaseKnowledge.VERSION,selectedPhase:phaseGuide?.phase||null,guideId:phaseGuide?.id||null,sectionOrder:PhaseKnowledge.sectionOrder,readingGuideIds:articles.filter(a=>a.guideType==='phase').map(a=>a.id),rule:'按分期查资料不等于确认本人阶段；可能变化不是已报告症状。行动示例需本人愿意，饮食活动的各期通用原则不伪装成专属方案。'},phaseAssessment,signature:signature(input,today),longTermMemory:clean.memory,recent:clean.recent,recentRule:'近期记录仅是前两个公历日的历史报告。今天是否延续未知；先核对，不据此诊断或形成长期特征。',date:clean.date,today,model:clean.model,future:clean.date>today,forecast,info,observation:clean.observation,preferences:clean.preferences,culture:cultureOf(clean),medicalPriority:plan.priorities.filter(a=>a.urgency==='medical'),phaseLabel:plan.phaseLabel,articles};
   }
-  return {VERSION,PSYCH,Memory,CareOutput,Phases,makeInput,normalize,signature,retrievalKey,build};
+  return {VERSION,PSYCH,articleSubjects,Memory,CareOutput,Phases,makeInput,normalize,signature,retrievalKey,build};
 });

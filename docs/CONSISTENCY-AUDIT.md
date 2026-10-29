@@ -83,3 +83,7 @@ npm run validate
 ```
 
 `audit`只生成内存中的合成数据，不读取本机个人档案或调用网络。回归重点见`tests/consistency-audit.test.cjs`、`tests/action-quality.test.cjs`及原有周期、记忆隐私和API测试。
+
+## 后续验证
+
+2026-10-29已完成小额DeepSeek真实抽样，结果包含真实失败与语义缺陷；见[逐次调用与修复记录](DEEPSEEK-EVALUATION.md)。本篇2026-10-28的模拟测试结论保持其原有范围。
