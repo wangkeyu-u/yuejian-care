@@ -6,7 +6,18 @@
  const cleanText=(v,n)=>typeof v==='string'?v.trim().slice(0,n):'';
  const secret=v=>/(sk-(?:proj-)?[A-Za-z0-9_-]{16,}|Bearer\s+[A-Za-z0-9_-]{16,}|(?:密钥|密码|api[_ -]?key)\s*[:：=]\s*\S{8,})/i.test(v);
  function signals(raw=[]){if(!Array.isArray(raw)||raw.length>10)throw Error('每天最多保存10条阶段线索');return raw.map(x=>{if(!x||!Object.hasOwn(kinds,x.kind)||typeof x.id!=='string'||!x.id||!cleanText(x.quote,500)||secret(x.quote)||secret(x.value))throw Error('阶段线索格式无效');return {id:x.id.slice(0,100),kind:x.kind,value:cleanText(x.value,120),quote:cleanText(x.quote,500),source:x.source==='chat'?'chat':'manual',sourceDate:C.isISODate(x.sourceDate)?x.sourceDate:null};});}
- function hint(raw,date){if(!raw)return null;if(!['follicular','ovulation','luteal','unknown'].includes(raw.phase)||!C.isISODate(raw.until)||raw.until<date||C.diffDays(raw.until,date)>31||!cleanText(raw.reason,240)||secret(raw.reason))throw Error('阶段标注需填写原因，范围最多32个公历日');return {phase:raw.phase,until:raw.until,reason:cleanText(raw.reason,240)};}
+ function hint(raw,date){if(!raw)return null;if(!['follicular','ovulation','luteal','unknown'].includes(raw.phase)||!C.isISODate(raw.until)||raw.until<date||C.diffDays(raw.until,date)>31||!cleanText(raw.reason,240)||secret(raw.reason))throw Error('阶段标注需填写原因，范围最多32个公历日');return {phase:raw.phase,until:raw.until,reason:cleanText(raw.reason,240),...(raw.certainty==='tentative'?{certainty:'tentative'}:{}),...(['note','chat'].includes(raw.source)?{source:raw.source}:{})};}
+ // Extract only an explicit first-person/current-day report. This records a
+ // hypothesis, never an inference from mood, behavior or a general question.
+ function report(value,date,today=C.todayISO(),source='note'){
+  if(!C.isISODate(date)||date>today||typeof value!=='string'||secret(value))return null;
+  for(const line of value.split(/[，,；;。！!\n]/)){
+   if(/如果|假如|假设|比如|例如|昨天|明天|上周|下周|不是|不在|没到|尚未|未进入|是不是|会不会|[吗？?]/.test(line)||/今天/.test(line)&&date!==today)continue;
+   const match=line.match(/(?:今天|这一天|她|本人|我)(?:[^，,；;]{0,10}?)(?:是|在|处于|进入|到了)(?:[^，,；;]{0,5}?)(黄体期|经前期|卵泡期|经后卵泡期|排卵期)/);
+   if(match)return hint({phase:/黄体|经前/.test(match[1])?'luteal':/排卵/.test(match[1])?'ovulation':'follicular',until:date,reason:cleanText(line,240),certainty:'tentative',source},date);
+  }return null;
+ }
+ function withReport(entry,value,date,source='note',today=C.todayISO()){const next={...entry},h=report(value,date,today,source);if(h)next.phaseHint=h;else if(next.phaseHint?.source===source)next.phaseHint=null;return next;}
  function unknown(reason){return {key:'unknown',label:labels.unknown,status:'unknown',start:null,end:null,day:null,remaining:null,windows:[],basis:reason,uncertainty:'聊天、情绪和一般行为不能确认排卵或黄体期。',ovulationWindow:null,sourceDates:[]};}
  function assess(profile,date,today=C.todayISO()){
   if(!C.isISODate(date)||!C.isISODate(today))throw Error('阶段日期无效');const f=F.estimate(profile,today),info=C.getCycle({...profile,cycleLength:f.cycleLength},date,today),periods=profile.periods||[],anchor=periods.find(p=>p.id===info.periodId);
@@ -15,7 +26,7 @@
   const actualState=actual?{...unknown('依据已保存的实际出血起止记录。'),key:'menstrual',label:labels.menstrual,status:'recorded',start:anchor.start,end:anchor.end,day:C.diffDays(date,anchor.start)+1,remaining:anchor.end?C.diffDays(anchor.end,date)+1:null,sourceDates:[anchor.start]}:null;
   const actualAnchor=periods.filter(p=>p.start<=date).at(-1)?.start;
   const annotation=Object.entries(entries).filter(([d,e])=>d<=date&&d<=today&&e.phaseHint&&e.phaseHint.until>=date&&(!actualAnchor||d>=actualAnchor)).sort(([a],[b])=>b.localeCompare(a))[0];
-  if(annotation&&!actual){const [d,e]=annotation,h=hint(e.phaseHint,d);return {...unknown('用户标注：'+h.reason),key:h.phase,label:labels[h.phase],status:'annotated',start:d,end:h.until,day:C.diffDays(date,d)+1,remaining:C.diffDays(h.until,date)+1,sourceDates:[d],uncertainty:'这是用户核对后的阶段标注，不是医学确认；实际出血记录优先。'};}
+  if(annotation&&!actual){const [d,e]=annotation,h=hint(e.phaseHint,d),tentative=h.certainty==='tentative';return {...unknown((tentative?'待确认判断：':'用户标注：')+h.reason),key:h.phase,label:labels[h.phase],status:tentative?'tentative':'annotated',start:d,end:h.until,day:C.diffDays(date,d)+1,remaining:C.diffDays(h.until,date)+1,sourceDates:[d],uncertainty:tentative?'用户报告的可能阶段，仅在标注日期内供讨论，不表示已经排卵。实际症状和限制优先，不能据此规定饮食或活动。':'这是用户核对后的阶段标注，不是医学确认；实际出血记录优先。'};}
   if(profile.phaseTracking==='paused')return actualState||unknown('四阶段估算已暂停，仍可记录实际月经和当天情况。');
   if(!info.cycleStart)return actualState||unknown('先记录最近一次实际月经开始日，才有估算起点。');
   if(f.forecastBlocked||f.overdue&&date>=f.nextStart)return actualState||unknown('下次参考日已到或已过，尚无新开始记录；不自动滚动出新的阶段。');
@@ -37,7 +48,7 @@
   return {tracking:profile.phaseTracking==='paused'?'paused':'calendar',lhDates:entries.filter(([d,e])=>(!info.cycleStart||d>=info.cycleStart)&&e.signals?.some(x=>x.kind==='lh_positive')).map(([d])=>d).sort().slice(-20),annotations:entries.filter(([d,e])=>(!actualAnchor||d>=actualAnchor)&&e.phaseHint&&e.phaseHint.until>=date).sort(([a],[b])=>a.localeCompare(b)).slice(-1).map(([d,e])=>({date:d,...e.phaseHint}))};
  }
  function normalizeInput(raw={},date,today){if(!Array.isArray(raw.lhDates||[])||(raw.lhDates||[]).length>20||!Array.isArray(raw.annotations||[])||(raw.annotations||[]).length>1)throw Error('阶段输入数量无效');const lhDates=[...new Set(raw.lhDates||[])];if(lhDates.some(d=>!C.isISODate(d)||d>date||d>today))throw Error('LH日期无效');const annotations=(raw.annotations||[]).map(x=>{if(!C.isISODate(x.date)||x.date>date||x.date>today)throw Error('标注日期无效');return {date:x.date,...hint(x,x.date)};});return {tracking:raw.tracking==='paused'?'paused':'calendar',lhDates,annotations};}
- function fromInput(profile,data){const entries={};for(const d of data.lhDates)entries[d]={signals:[{kind:'lh_positive'}]};for(const x of data.annotations)entries[x.date]={...(entries[x.date]||{}),phaseHint:{phase:x.phase,until:x.until,reason:x.reason}};return {...profile,entries,phaseTracking:data.tracking};}
+ function fromInput(profile,data){const entries={};for(const d of data.lhDates)entries[d]={signals:[{kind:'lh_positive'}]};for(const x of data.annotations)entries[x.date]={...(entries[x.date]||{}),phaseHint:hint(x,x.date)};return {...profile,entries,phaseTracking:data.tracking};}
  function evidence(raw,today=C.todayISO()){if(!Array.isArray(raw)||raw.length>20)throw Error('最多20段聊天原句');const list=raw.map(x=>{if(!x||!C.isISODate(x.date)||x.date>today||typeof x.id!=='string'||!/^[-a-zA-Z0-9:_]{1,100}$/.test(x.id)||!cleanText(x.text,1000)||x.text.length>1000||secret(x.text))throw Error('聊天来源格式无效或包含秘密，请先去除');return {id:x.id,date:x.date,text:cleanText(x.text,1000)};});if(new Set(list.map(x=>x.id)).size!==list.length)throw Error('来源ID重复');return list;}
  function supports(kind,quote){
   if(kind==='bleeding_start')return /月经|姨妈|例假|生理期/.test(quote)&&/来[了啦]|开始|第一天|第1天/.test(quote)&&!/(没来|还没|未开始|没开始|预计|可能|快来|要来|如果|是不是|吗|？|\?)/.test(quote);
@@ -47,5 +58,5 @@
  }
  function candidates(raw,sources,today=C.todayISO()){const byId=new Map(sources.map(x=>[x.id,x]));return (Array.isArray(raw)?raw:[]).slice(0,12).filter(x=>x&&Object.hasOwn(kinds,x.kind)&&C.isISODate(x.date)&&x.date<=today&&cleanText(x.quote,500).length>=4&&byId.get(x.sourceId)?.text.includes(x.quote)&&!secret(x.quote)&&!secret(x.value)&&supports(x.kind,x.quote)).map(x=>({date:x.date,kind:x.kind,value:cleanText(x.value,120),quote:cleanText(x.quote,500),sourceId:x.sourceId}));}
 
- return {labels,kinds,signals,hint,assess,project,normalizeInput,fromInput,evidence,candidates};
+ return {labels,kinds,signals,hint,report,withReport,assess,project,normalizeInput,fromInput,evidence,candidates};
 });

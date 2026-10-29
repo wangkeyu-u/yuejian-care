@@ -3,6 +3,11 @@
   const date='2026-10-28',eat={title:'NHS · The Eatwell Guide',url:'https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/the-eatwell-guide/'},iron={title:'NIH ODS · Iron: Fact Sheet for Consumers',url:'https://ods.od.nih.gov/factsheets/Iron-Consumer/'},pms={title:'NHS · PMS (premenstrual syndrome)',url:'https://www.nhs.uk/conditions/pre-menstrual-syndrome/'};
   const create=(id,title,summary,body,sources,paragraphSources,sourceNotes,note)=>({id,kind:'health',category:'饮食活动',title,summary,body,tags:['饮食','三餐','营养','经期'],sources,paragraphSources,verification:{checkedAt:date,basis:'mixed',note,sourceNotes:sources.map((s,i)=>({url:s.url,supports:sourceNotes[i]}))}});
   return [
+    create('nutrition-food-allergy','有过敏时，先排除再配餐','主食材、调味料和替换都要核对；配料不明时先不下单。',[
+      'NHS 指出，食物过敏需要避免相关食物，也包括含有相应配料的食品。建议仔细查看包装标签和餐厅菜单，并向餐厅工作人员说明过敏情况；不能只查看菜名。',
+      '本站将用户填写的过敏食材作为排除项，检查 AI 三餐与替换中的已知食材名称，并让模型核对调料。这个名称拦截是工程措施，无法鉴别所有菜式、实际成分或制作过程，不能证明一份外卖适合本人。',
+      '准备前查看完整配料，向店家说明具体过敏项并询问原料与制作接触情况；无法确认时先不购买，换成配料可核对且本人愿意吃的方案。不要让经期、五行或所谓补益作用越过已知过敏限制。'
+    ],[{title:'NHS · Food allergy',url:'https://www.nhs.uk/conditions/food-allergy/'}],[[0],[],[]],['支持避免过敏食物及含相关配料食品、检查标签菜单、告知餐厅；应用拦截与具体操作为本站编辑措施。'],'医学原则依据 NHS；名称拦截和下单步骤为本站编辑，不构成对食物成分或个体安全的认证。'),
     create('nutrition-meal-pattern','今天吃什么：把三餐搭配落到餐桌上','用主食、蛋白质食物和蔬果组成可替换的一餐，不按周期日号规定菜单。',[
       'NHS 均衡饮食指南建议从不同食物组选择食物，包括淀粉类主食、豆类/鱼/蛋/肉等蛋白质食物、蔬果、奶类或替代品；平衡可放在一天甚至一周内实现，不要求每顿精确配比。',
       '一个可操作的搭配示例是：早餐选燕麦、原味酸奶和水果；午餐选米饭、豆类或瘦肉及蔬菜；晚餐选面食、鸡蛋或豆类及蔬菜。菜式由本站按食物组整理，是普通餐食选项，不是原文处方、专门止痛餐或必须照吃的任务。',

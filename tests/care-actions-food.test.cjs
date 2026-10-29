@@ -19,7 +19,7 @@ test('server rejects an incomplete meal plan, empty actions and invalid nutritio
 test('analysis and follow-up carry nutrition sources, restrictions, actionable schema and prior meal plan',async()=>{
  const p=make();p.preferences.dietary='已确认花生过敏；素食';p.signature=D.signature(p,today);let sent;const service=await api(async(url,options)=>{sent=JSON.parse(options.body);return wrap({...analysis(),memoryCandidates:[]});});
  const response=await service.analyze(request(p));assert.equal(response.status,200);assert.equal((await response.json()).analysis.food.meals[0].slot,'早餐');
- const context=JSON.parse(sent.input[0].content).day;assert.equal(context.preferences.dietary,p.preferences.dietary);assert.equal(context.articles.filter(a=>a.id.startsWith('nutrition-')).length,3);
+ const context=JSON.parse(sent.input[0].content).day;assert.equal(context.preferences.dietary,p.preferences.dietary);assert.equal(context.articles.filter(a=>a.id.startsWith('nutrition-')).length,4);
  assert(sent.text.format.schema.properties.sections.properties.western.properties.actions.items.required.includes('adjust'));assert(sent.text.format.schema.required.includes('food'));assert.match(sent.instructions,/先确认/);assert.match(sent.instructions,/medicalPriority非空/);assert(!JSON.stringify(sent.input).includes('book-gynecology'));
  const chat={...p,mode:'chat',question:'这顿不想吃怎么办？',analysis:analysis()};const follow=await api(async(url,options)=>{sent=JSON.parse(options.body);return wrap({reply:'先让她选一个接受的替换。',actions:[action()],articleIds:['nutrition-meal-pattern'],uncertainty:'需要本人确认。'});});
  assert.equal((await follow.analyze(request(chat))).status,200);assert.equal(JSON.parse(sent.input[0].content).previousAnalysis.food.meals.length,3);
