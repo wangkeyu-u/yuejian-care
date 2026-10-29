@@ -36,7 +36,7 @@
   function itemTopics(x){if(x.topics.length)return x.topics;const guess=queryTopics(x.content);if(guess[0]!=='general')return guess;return {support:['support'],comfort:['support','food','sleep'],avoid:['support'],routine:['sleep','support'],health_report:['health'],medication_report:['health'],allergy_report:['food','health']}[x.category];}
   function select(raw,date,today,question='',mode='analysis',focus='auto'){
     const all=active(raw,date,today),query=mode==='analysis'?['general']:queryTopics(question,focus),broad=query.includes('general');
-    const scored=all.map(x=>{const tags=itemTopics(x),critical=['health_report','medication_report','allergy_report'].includes(x.category)&&query.some(t=>['general','health','food','sleep','support'].includes(t));return {x,critical,score:(critical?100:0)+(broad?10:tags.filter(t=>query.includes(t)).length*20)+(x.scope==='short_term'?2:0)-(x.reviewAt&&x.reviewAt<=today?1:0)};}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||b.x.updatedAt.localeCompare(a.x.updatedAt)||a.x.id.localeCompare(b.x.id));
+    const scored=all.map(x=>{const tags=itemTopics(x),critical=['health_report','medication_report','allergy_report'].includes(x.category)&&query.some(t=>['general','health','food','sleep','support'].includes(t));return {x,critical,score:(critical?100:0)+(broad?10:tags.filter(t=>query.includes(t)).length*20)+(x.scope==='short_term'?2:0)-(x.reviewAt&&x.reviewAt<=today?1:0)};}).filter(({x,critical})=>broad||critical||itemTopics(x).some(t=>query.includes(t))).sort((a,b)=>b.score-a.score||b.x.updatedAt.localeCompare(a.x.updatedAt)||a.x.id.localeCompare(b.x.id));
     let ordinary=0;return scored.filter(x=>x.critical||ordinary++<8).map(x=>x.x);
   }
   function contextToken(raw){const m=normalize(raw);return fingerprint(JSON.stringify({enabled:m.enabled,autoExtract:m.autoExtract,revision:m.revision,blocks:m.blocks,items:m.items.filter(x=>x.status!=='pending')}));}
@@ -72,6 +72,7 @@
     if(!Array.isArray(raw))return [];const byId=new Map(evidence.map(x=>[x.id,x])),result=[];
     for(const c of raw.slice(0,8)){const source=byId.get(c?.sourceId),content=text(c?.content,240),quote=text(c?.quote,1000),scope=c?.scope;
       if(!source||!['long_term','short_term'].includes(scope)||!Object.hasOwn(categories,c.category)||!content||quote.length<4||!source.text.includes(quote)||secret(content)||secret(quote))continue;
+      const dateForms=[source.date,Number(source.date.slice(5,7))+'月'+Number(source.date.slice(8))+'日'],withoutDate=v=>dateForms.reduce((s,d)=>s.split(d).join(''),v),reportedNumbers=withoutDate(content).match(/\d+(?:\.\d+)?/g)||[],quotedNumbers=withoutDate(quote).match(/\d+(?:\.\d+)?/g)||[];if(reportedNumbers.some(n=>!quotedNumbers.includes(n)))continue;
       if(scope==='long_term'&&(!/(平时|通常|一直|长期|每次|经常|习惯|一向|以后|总是|过敏|正在服|目前服|确诊|诊断|记住)/.test(quote)||/(今天|今晚|这次|刚刚|昨天|明天|这两天)/.test(quote)&&!/(平时|通常|一直|长期|每次|经常|习惯|一向|总是)/.test(quote)))continue;
       result.push({category:c.category,content,scope,sourceId:source.id,quote,evidence:{date:source.date,kind:source.kind,sourceId:source.id,quote,privacyBlocks:source.privacyBlocks||[]}});
     }return result;

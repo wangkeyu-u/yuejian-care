@@ -1,3 +1,4 @@
+const {withGrounds}=require('./helpers.cjs');
 const test=require('node:test'),assert=require('node:assert/strict');
 const C=require('../public/core.js'),S=require('../public/state.js'),D=require('../public/day-context.js'),P=require('../public/phases.js'),F=require('../public/forecast.js'),M=require('../public/memory.js'),K=require('../public/catalog.js');
 const {app,fixture,change,submit,tick,mockAI,analysis,action,KEY,today}=require('./helpers.cjs');
@@ -122,7 +123,7 @@ test('analysis, follow-up, memory and signal prompts each request only their int
   for(const mode of ['analysis','chat','memory','signals']){
     let sent;const profile=S.decode(fixture(),today),input={...D.makeInput(profile,today),mode,question:mode==='chat'?'晚餐可以换成什么？':'',history:[],consent:true,memoryEvidence:[],phaseEvidence:[]};input.signature=D.signature(input,today);
     const answer=mode==='analysis'?{...analysis(),memoryCandidates:[]}:mode==='chat'?{reply:'先确认她想替换哪一种食材。',actions:[action()],articleIds:['nutrition-meal-pattern'],uncertainty:'需核对已知忌口。',memoryCandidates:[]}:mode==='memory'?{memoryCandidates:[]}:{phaseCandidates:[]};
-    const service=createDayAnalyzer({DayContext:D,catalog:K.articles,now:()=>today,fetchImpl:async(url,options)=>{sent=JSON.parse(options.body);return new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(answer)}]}]}));}});
+    const service=createDayAnalyzer({DayContext:D,catalog:K.articles,now:()=>today,fetchImpl:async(url,options)=>{sent=JSON.parse(options.body);return new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(withGrounds(answer))}]}]}));}});
     const response=await service.analyze(new Request('https://care.test/api/day',{method:'POST',headers:{Origin:'https://care.test','Content-Type':'application/json',Authorization:'Bearer synthetic_only_key_1234567890'},body:JSON.stringify(input)}));assert.equal(response.status,200,mode);
     assert.equal(sent.store,false);assert.equal(sent.text.format.strict,true);
     if(mode==='analysis'){assert(sent.text.format.schema.required.includes('food'));assert.match(sent.instructions,/一件最值得现在做的事/);}

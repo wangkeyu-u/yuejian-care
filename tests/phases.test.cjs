@@ -1,3 +1,4 @@
+const {withGrounds}=require('./helpers.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
 const P=require('../public/phases'),S=require('../public/state'),D=require('../public/day-context'),catalog=require('../public/catalog').articles;
 const {app,change,submit,tick,mockAI,analysis,today}=require('./helpers.cjs');
@@ -29,7 +30,7 @@ test('candidate quotes, event type, explicit negatives, dates and secrets are ch
  assert.equal(P.candidates([base],sources,today).length,1);for(const patch of [{kind:'bleeding_start',quote:'昨晚想独处'},{kind:'lh_positive',quote:'LH试纸阴性'},{kind:'bleeding_end',quote:'还没结束'},{quote:'不存在的原句'},{date:'2026-10-29'}])assert.equal(P.candidates([{...base,...patch}],sources,today).length,0);
  assert.throws(()=>P.evidence([{...source,text:'api_key: sk-test_synthetic_secret_123456789'}],today));
 });
-const wrap=v=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(v)}]}]}));
+const wrap=v=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(withGrounds(v))}]}]}));
 test('signals API sends only the consented snippets to the model and returns validated candidates without writing phases',async()=>{
  const p={...D.makeInput(profile(),today),mode:'signals',history:[],question:'',consent:true,phaseEvidence:[{id:'c',date:today,text:'她说今天月经开始了'}]};p.signature=D.signature(p,today);let body;const create=(await import(pathToFileURL(path.resolve(__dirname,'../worker/day-ai.mjs')))).createDayAnalyzer;
  const api=create({DayContext:D,catalog,now:()=>today,fetchImpl:async(url,o)=>{body=JSON.parse(o.body);return wrap({phaseCandidates:[{date:today,kind:'bleeding_start',value:'月经开始',quote:'今天月经开始了',sourceId:'c'}]});}});

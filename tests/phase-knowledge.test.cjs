@@ -1,3 +1,4 @@
+const {withGrounds}=require('./helpers.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
 const K=require('../public/phase-knowledge'),C=require('../public/catalog'),D=require('../public/day-context'),S=require('../public/state');
 const {app,fixture,change,tick,today,action,food}=require('./helpers.cjs');
@@ -30,7 +31,7 @@ test('matching day action links to the exact same guide and unknown stage offers
 test('relay sends the selected sourced phase guide to AI while preserving evidence-domain boundaries',async()=>{
  const p={...D.makeInput(profile(),today),mode:'analysis',consent:true,question:'',history:[]};p.signature=D.signature(p,today);const ctx=D.build(p,C.articles,today);let body;const create=(await import(pathToFileURL(path.resolve(__dirname,'../worker/day-ai.mjs')))).createDayAnalyzer;
  const result={summary:'测试建议',uncertainty:'阶段仅供参考',food:food(),sections:['culture','tcm','western','psychology'].map(kind=>({kind,title:kind,body:'依据资料与实际情况',actions:[action()],articleIds:[kind==='western'?'phase-care-luteal':kind==='psychology'?'health-pms':kind==='tcm'?'tcm-pain-language':'culture-stem-branch']})),memoryCandidates:[]};
- const api=create({DayContext:D,catalog:C.articles,now:()=>today,fetchImpl:async(url,o)=>{body=JSON.parse(o.body);return new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(result)}]}]}));}});
+ const api=create({DayContext:D,catalog:C.articles,now:()=>today,fetchImpl:async(url,o)=>{body=JSON.parse(o.body);return new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(withGrounds(result))}]}]}));}});
  const r=await api.analyze(new Request('https://phaseguide.test/api/day',{method:'POST',headers:{Origin:'https://phaseguide.test','Content-Type':'application/json',Authorization:'Bearer synthetic_only_key_1234567890'},body:JSON.stringify(p)}));assert.equal(r.status,200);const sent=JSON.parse(body.input[0].content).day;assert.equal(sent.phaseKnowledge.guideId,'phase-care-luteal');assert(sent.articles.some(a=>a.id==='phase-care-luteal'&&a.paragraphSources.length===a.body.length));assert(!sent.articles.some(a=>a.id==='phase-care-follicular'));assert.match(body.instructions,/各期通用/);assert.equal(body.store,false);
  const bad=structuredClone(result);bad.sections.find(s=>s.kind==='psychology').articleIds=['phase-care-luteal'];assert.throws(()=>api.validateAnalysis(bad,ctx),/Invalid section sources/);
 });

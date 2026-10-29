@@ -3,7 +3,7 @@
  function exclusions(context){return A.normalize([...new Set([...(context.preferences?.allergies||[]),...A.reported(context.preferences?.dietary||''),...(context.longTermMemory?.items||[]).filter(x=>x.category==='allergy_report').flatMap(x=>A.reported(x.content))])]);}
  // Explanations may name an exclusion, but an actual menu or replacement may
  // not. The text check is deliberately conservative; it is not label checking.
- function assertText(text,list){for(const clause of String(text||'').split(/[，。！？；,;!?\n]/)){if(!A.findRisk(clause,list).length)continue;const clean=clause.replace(/不推荐|不建议|不可以/g,'禁止');if(/但.{0,10}(可以|能|吃|喝|用)|推荐|建议吃|可以吃|可以喝|可以用|也能吃|少量吃|试吃|尝试吃|过敏.*(?:所以|因此).*(?:煮|吃|喝)/.test(clean)||!/(不吃|不能吃|不要吃|不推荐|不使用|不用|不放|不含|避免|避开|排除|禁用|过敏|忌口|核对|检查|确认配料|确认无|无蛋|无奶)/.test(clause))throw Error('建议含已排除的过敏食材，结果未保存。');}}
+ function assertText(text,list){for(const clause of String(text||'').split(/[，。！？；,;!?\n]/)){if(!A.findRisk(clause,list).length)continue;const clean=clause.replace(/不推荐|不建议|不可以/g,'禁止');if(/但.{0,10}(可以|能|吃|喝|用)|推荐|建议吃|可以吃|可以喝|可以用|也能吃|少量吃|试吃|尝试吃|过敏.*(?:所以|因此).*(?:煮|吃|喝)/.test(clean)||!/(不吃|不能吃|不要吃|不推荐|不使用|不用|不放|不含|避免|避开|排除|禁用|过敏|忌口|核对|检查|确认配料|确认无|看包装标签|查看配料表|查看标签|无蛋|无奶)/.test(clause))throw Error('建议含已排除的过敏食材，结果未保存。');}}
  function alone(context){return ['alone','独处'].includes(context.observation?.support)||/不需要回复|不想被打扰|不要打扰/.test(context.observation?.note||'');}
  function contacts(actions){return actions.filter(a=>a&&typeof a==='object'&&!/医生|药师|医师|营养师|店员|商家|只在她说起时|她主动/.test(a.how)&&/问她|询问她|问一句|可问今天|发一句|发一条|发消息|发送消息|给她发|联系她|询问是否|发[“「"]/.test(a.how+' '+a.task));}
  const delivery=/放(?:在)?门口|送饭|送餐|登门|上门/;

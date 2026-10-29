@@ -1,3 +1,4 @@
+const {withGrounds}=require('./helpers.cjs');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const path=require('node:path');
@@ -10,7 +11,7 @@ const {action,food}=require('./helpers.cjs');
 
 const today='2026-10-28';
 const key='synthetic_only_key_1234567890';
-const wrap=value=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(value)}]}]}),{headers:{'Content-Type':'application/json'}});
+const wrap=value=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(withGrounds(value))}]}]}),{headers:{'Content-Type':'application/json'}});
 
 test('provider definitions and model validation have one fixed endpoint per provider',()=>{
   assert.deepEqual(Providers.definition(),Providers.definitions.openai);

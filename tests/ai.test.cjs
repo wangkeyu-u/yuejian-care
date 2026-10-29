@@ -1,3 +1,4 @@
+const {withGrounds}=require('./helpers.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
 const DayContext=require('../public/day-context.js'),State=require('../public/state.js'),AI=require('../public/ai-client.js');
 const {action,food}=require('./helpers.cjs');
@@ -5,7 +6,7 @@ const catalog=require('../public/catalog.js').articles,today='2026-10-28';
 const base=()=>{const s=State.defaults();s.periods=[{id:'p',start:'2026-10-20',end:'2026-10-24',status:'ended'}];return {...DayContext.makeInput(s,today),mode:'analysis',consent:true,question:'',history:[]};};
 const payload=()=>{const p=base();p.signature=DayContext.signature(p,today);return p;};
 const valid=context=>({summary:'测试分析',uncertainty:'资料有限。',food:food(),sections:['culture','tcm','western','psychology'].map(kind=>({kind,title:kind,body:'只用于接口测试。',actions:[action()],articleIds:context.articles.filter(a=>a.subject===kind).slice(0,1).map(a=>a.id)}))});
-const wrap=value=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(value)}]}]}),{headers:{'Content-Type':'application/json'}});
+const wrap=value=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(withGrounds(value))}]}]}),{headers:{'Content-Type':'application/json'}});
 const create=async fetchImpl=>(await import(pathToFileURL(path.resolve(__dirname,'../worker/day-ai.mjs')))).createDayAnalyzer({DayContext,catalog,fetchImpl,now:()=>today});
 const req=(value=payload(),headers={})=>new Request('https://day.test/api/day',{method:'POST',headers:{Origin:'https://day.test','Content-Type':'application/json',Authorization:'Bearer synthetic_only_key_1234567890',...headers},body:JSON.stringify(value)});
 test('daily relay validates consent, origin, key and signature before any paid call',async()=>{let count=0;const api=await create(async()=>{count++;throw Error('unexpected');});assert.equal((await api.analyze(req(payload(),{Origin:'https://other.test'}))).status,403);assert.equal((await api.analyze(req(payload(),{Authorization:''}))).status,401);assert.equal((await api.analyze(req({...payload(),consent:false}))).status,400);assert.equal((await api.analyze(req({...payload(),signature:'stale'}))).status,409);assert.equal(count,0);});

@@ -64,3 +64,34 @@ main{max-width:1320px;padding:26px 36px}.sidebar nav{margin-top:44px}.page-headi
 .calendar-legend .legend-estimated{width:16px;height:0;border-bottom:2px dashed var(--muted);border-radius:0;background:none}
 .calendar-legend .legend-annotated{width:16px;height:5px;border-block:1px solid var(--muted);border-radius:0;background:none}
 .calendar-panel .calendar-day.today strong{color:var(--paper);font-weight:500}
+
+/* Quiet, date-led surfaces. Phase colour remains a data encoding. */
+:root{--ease-calm:cubic-bezier(.22,1,.36,1)}
+.calendar-panel{padding:22px 24px 18px;background:var(--paper);border-radius:14px}
+.calendar-header{padding:0 0 18px}.calendar-header h2{font-size:23px;font-weight:500;letter-spacing:0;font-variant-numeric:tabular-nums}
+.calendar-grid{gap:7px}.calendar-panel .calendar-day{min-height:66px;border-radius:8px;transition:box-shadow 160ms var(--ease-calm),transform 160ms var(--ease-calm)}
+.calendar-panel .calendar-day strong{font-variant-numeric:tabular-nums;font-size:23px;font-weight:450;letter-spacing:-.02em}
+.calendar-panel .calendar-day:active{transform:scale(.96)}
+.calendar-panel .calendar-day.today strong{font-weight:500}
+.calendar-legend{padding-top:6px;gap:9px 18px}
+#day-dialog[data-phase="menstrual"]{--day-accent:#ae5b58}#day-dialog[data-phase="follicular"]{--day-accent:#547f70}#day-dialog[data-phase="ovulation"]{--day-accent:#a67a24}#day-dialog[data-phase="luteal"]{--day-accent:#80629f}#day-dialog{--day-accent:var(--sage);border:0;border-radius:14px}
+#day-dialog .dialog-header{border-bottom:1px solid var(--line);background:var(--paper)}
+#day-phase{display:flex;align-items:center;gap:7px}#day-phase:before{content:'';width:7px;height:7px;border-radius:50%;background:var(--day-accent);flex-shrink:0}
+#day-dialog[open]{animation:day-open 220ms var(--ease-calm)}
+#day-dialog[open]::backdrop{animation:backdrop-open 180ms ease-out}
+#day-dialog.ai-busy #day-phase:before{animation:moon-breathe 1.8s ease-in-out infinite}
+.button,.icon-button{transition:background-color 160ms var(--ease-calm),transform 160ms var(--ease-calm)}
+.button:active,.icon-button:active{transform:translateY(1px)}
+.toast.show{animation:save-settle 180ms var(--ease-calm)}
+.evidence-detail{margin:8px 0 12px}.evidence-detail>summary{font-size:12px;min-height:32px;color:var(--sage);font-weight:500}
+.evidence-body{padding:4px 0 10px;max-width:65ch;font-size:13px;line-height:1.8;overflow-wrap:anywhere}
+.evidence-body p{font-size:13px;margin:8px 0;font-weight:400}.evidence-body .evidence-reason{font-weight:500;color:var(--ink)}
+.evidence-record{padding:6px 0;border-bottom:1px solid var(--line)}.evidence-record span,.evidence-limit span{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+.evidence-citation{padding:8px 0;border-top:1px solid var(--line)}.evidence-citation blockquote{margin:4px 0 8px;padding:0;border:0;color:var(--ink)}.evidence-citation>a{display:block;font-size:12px;text-decoration:underline;text-underline-offset:3px}.evidence-citation>.small-link{font-size:12px;font-weight:500;text-align:left}.evidence-body .evidence-footnote{font-size:11px;color:var(--muted);margin-top:12px}.evidence-limit{color:var(--muted)}
+.care-actions .evidence-detail{margin-bottom:0}.care-actions .evidence-body p{display:block}.care-actions .evidence-body span{min-width:0}
+@keyframes day-open{from{opacity:.5;transform:translateY(8px) scale(.995)}to{opacity:1;transform:none}}
+@keyframes backdrop-open{from{opacity:0}to{opacity:1}}
+@keyframes save-settle{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
+@keyframes moon-breathe{0%,100%{opacity:.4;transform:scale(.85)}50%{opacity:1;transform:scale(1.12)}}
+@media(max-width:700px){.calendar-panel{padding:16px 10px 14px;margin-inline:-6px;border-radius:10px}.calendar-grid{gap:4px}.calendar-panel .calendar-day{min-height:56px;border-radius:6px}.calendar-panel .calendar-day strong{font-size:20px}.calendar-legend{gap:8px 12px;padding-inline:3px}.calendar-header h2{font-size:20px}.evidence-detail>summary{min-height:40px}.evidence-body{font-size:13px}.calendar-panel .calendar-day:active{transform:none}}
+@media(prefers-reduced-motion:reduce){#day-dialog[open],#day-dialog[open]::backdrop,#day-dialog.ai-busy #day-phase:before,.toast.show{animation:none!important}.calendar-panel .calendar-day,.button,.icon-button{transition:none!important}.calendar-panel .calendar-day:active,.button:active,.icon-button:active{transform:none!important}}

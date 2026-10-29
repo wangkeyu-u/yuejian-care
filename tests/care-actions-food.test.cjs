@@ -1,10 +1,11 @@
+const {withGrounds}=require('./helpers.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
 const Care=require('../public/care-output.js'),Catalog=require('../public/catalog.js'),D=require('../public/day-context.js'),S=require('../public/state.js'),Sessions=require('../public/day-sessions.js');
 const {app,change,submit,tick,analysis,action,food,mockAI,today}=require('./helpers.cjs');
 const setKey=a=>{change(a,'#api-key','synthetic_only_key_1234567890');submit(a,'#api-form');};
 const make=()=>{const p={...D.makeInput(S.defaults(),today),mode:'analysis',question:'',history:[],consent:true};p.signature=D.signature(p,today);return p;};
 const request=p=>new Request('https://care.test/api/day',{method:'POST',headers:{Origin:'https://care.test','Content-Type':'application/json',Authorization:'Bearer synthetic_only_key_1234567890'},body:JSON.stringify(p)});
-const wrap=v=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(v)}]}]}));
+const wrap=v=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(withGrounds(v))}]}]}));
 const api=async fetchImpl=>(await import(pathToFileURL(path.resolve(__dirname,'../worker/day-ai.mjs')))).createDayAnalyzer({DayContext:D,catalog:Catalog.articles,fetchImpl,now:()=>today});
 test('new analysis requires real action fields and all three meals; legacy stored analysis stays readable',()=>{
  const current=analysis();assert.equal(Care.analysis(current).food.meals.length,3);

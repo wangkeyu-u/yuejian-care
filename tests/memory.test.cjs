@@ -1,3 +1,4 @@
+const {withGrounds}=require('./helpers.cjs');
 const test=require('node:test'),assert=require('node:assert/strict'),path=require('node:path'),{pathToFileURL}=require('node:url');
 const M=require('../public/memory.js'),S=require('../public/state.js'),D=require('../public/day-context.js'),AI=require('../public/ai-client.js');
 const catalog=require('../public/catalog.js').articles;
@@ -42,7 +43,7 @@ test('medication candidates get a review date; invalid limits or secret data can
  assert.throws(()=>M.approve(memory(Array.from({length:24},(_,i)=>item({id:'m'+i}))),item({id:'extra'}),today));
  assert.equal(M.active(memory([item({until:'2026-10-27'})]),'2026-10-21',today).length,1);
 });
-const wrap=value=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(value)}]}]}));
+const wrap=value=>new Response(JSON.stringify({status:'completed',output:[{content:[{type:'output_text',text:JSON.stringify(withGrounds(value))}]}]}));
 const create=async fetchImpl=>(await import(pathToFileURL(path.resolve(__dirname,'../worker/day-ai.mjs')))).createDayAnalyzer({DayContext:D,catalog,fetchImpl,now:()=>today});
 const request=p=>new Request('https://memory.test/api/day',{method:'POST',headers:{Origin:'https://memory.test','Content-Type':'application/json',Authorization:'Bearer synthetic_only_key_1234567890'},body:JSON.stringify(p)});
 const payload=(state=S.defaults(),mode='analysis')=>{const p={...D.makeInput(state,today),mode,consent:true,history:[],question:''};p.signature=D.signature(p,today);return p;};
