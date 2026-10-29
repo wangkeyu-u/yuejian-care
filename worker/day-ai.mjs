@@ -1,8 +1,9 @@
 const dayHeaders={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 const dayJson=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:dayHeaders});
-export function createDayAnalyzer({DayContext,catalog,fetchImpl=fetch,now}){
+export function createDayAnalyzer({DayContext,catalog,fetchImpl=fetch,now,Providers:injectedProviders}){
   const Memory=DayContext.Memory,Care=DayContext.CareOutput,Phases=DayContext.Phases;
   const kinds=['western','tcm','psychology','culture'];
+  const Providers=injectedProviders||DayContext.Providers;if(!Providers)throw Error('AI服务配置尚未初始化');
   function validIds(ids,context,kind){return Array.isArray(ids)&&ids.length<=24&&ids.every(id=>context.articles.some(a=>a.id===id&&(!kind||(a.subjects||[a.subject]).includes(kind))));}
   function validateAnalysis(value,context){
     if(value?.sections&&!Array.isArray(value.sections)){const sections=value.sections;if(Object.keys(sections).length!==Care.kinds.length||Care.kinds.some(kind=>sections[kind]?.kind!==kind))throw Error('Invalid section keys');value={...value,sections:Care.kinds.map(kind=>sections[kind])};}
@@ -16,8 +17,8 @@ export function createDayAnalyzer({DayContext,catalog,fetchImpl=fetch,now}){
     if(request.method!=='POST')return dayJson({error:'只支持 POST 请求。'},405);
     if(request.headers.get('Origin')!==new URL(request.url).origin)return dayJson({error:'请从本站页面发起分析。'},403);
     if(!request.headers.get('Content-Type')?.toLowerCase().startsWith('application/json'))return dayJson({error:'请发送 JSON 请求。'},415);
-    const bearer=request.headers.get('Authorization')||'';if(!/^Bearer [A-Za-z0-9_-]{20,512}$/.test(bearer))return dayJson({error:'请先到设置填写有效的 OpenAI API Key。'},401);
-    let input,context,mode,history,previous,memoryEvidence,phaseEvidence;
+    const bearer=request.headers.get('Authorization')||'';if(!/^Bearer [A-Za-z0-9_-]{20,512}$/.test(bearer))return dayJson({error:'请先在设置选择AI服务并填写对应的 API Key。'},401);
+    let input,context,mode,history,previous,memoryEvidence,phaseEvidence,provider='openai',providerDefinition;
     try{
       const reader=request.body?.getReader();if(!reader)throw Error('No body');const chunks=[];let size=0;
       for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>96*1024){await reader.cancel();return dayJson({error:'请求内容过大，请缩短问题。'},413);}chunks.push(value);}
@@ -26,12 +27,14 @@ export function createDayAnalyzer({DayContext,catalog,fetchImpl=fetch,now}){
       mode=input.mode;if(!['analysis','chat','memory','signals'].includes(mode))throw Error('Invalid mode');
       if(typeof input.question!=='string'||input.question.length>2000)throw Error('Question limit');
       context=DayContext.build(input,catalog,now?.(),input.question,typeof input.focusArticleId==='string'?input.focusArticleId:'');
+      try{provider=Providers.normalize(context.provider);providerDefinition=Providers.definition(provider);}catch{const error=Error('服务商配置无效。');error.providerError=true;throw error;}
+      if(!Providers.validModel(provider,context.model)){const error=Error(`${providerDefinition.label} 模型 ID 无效，请在设置中选择支持的模型。`);error.providerError=true;throw error;}
       if(input.signature!==context.signature)return dayJson({error:'当天记录或日期已变化，请刷新上下文后重试。'},409);
       history=Array.isArray(input.history)?input.history:[];if(history.length>12||history.some(x=>!['user','assistant'].includes(x.role)||typeof x.content!=='string'||x.content.length>3000))throw Error('History limit');
       phaseEvidence=mode==='signals'?Phases.evidence(input.phaseEvidence,context.today):[];
       memoryEvidence=mode==='memory'?Memory.normalizeEvidence(input.memoryEvidence||[],context.today):Memory.dayEvidence(context,history,input.question);
       if(mode==='chat'){for(const id of [...(input.analysis?.sections||[]).flatMap(s=>Array.isArray(s?.articleIds)?s.articleIds:[]),...(input.analysis?.food?.articleIds||[])]){const article=catalog.find(a=>a.id===id);if(article&&(context.culture.enabled||!id.startsWith('culture-'))&&!context.articles.some(a=>a.id===id))context.articles.push({id:article.id,subjects:DayContext.articleSubjects(article.id),subject:id.startsWith('tcm-')?'tcm':id.startsWith('culture-')?'culture':DayContext.PSYCH.includes(id)?'psychology':'western',title:article.title,body:article.body,sources:article.sources,verification:article.verification});}if(!input.question.trim())throw Error('Empty question');if(input.analysis)previous=validateAnalysis(input.analysis,context);}
-    }catch{return dayJson({error:'当天记录、对话或日期格式无效，请重新打开这一天。'},400);}
+    }catch(error){if(error?.providerError)return dayJson({error:error.message},400);return dayJson({error:'当天记录、对话或日期格式无效，请重新打开这一天。'},400);}
     const ids=context.articles.map(a=>a.id),string={type:'string'},refs={type:'array',items:{type:'string',enum:ids}};
     const schema=mode==='analysis'?Care.schema(ids,Object.fromEntries(kinds.map(kind=>[kind,context.articles.filter(a=>(a.subjects||[a.subject]).includes(kind)).map(a=>a.id)]))):{type:'object',additionalProperties:false,properties:{reply:string,actions:{type:'array',items:Care.actionSchema},articleIds:refs,uncertainty:string},required:['reply','actions','articleIds','uncertainty']};
     const extracting=mode!=='signals'&&(mode==='memory'||context.longTermMemory.autoExtract);
@@ -56,14 +59,15 @@ export function createDayAnalyzer({DayContext,catalog,fetchImpl=fetch,now}){
     const messages=[{role:'user',content:JSON.stringify(mode==='signals'?{phaseEvidence}:mode==='memory'?{memoryEvidence}:{day:modelContext,previousAnalysis:previous||null,memoryEvidence})},...(['memory','signals'].includes(mode)?[]:history),{role:'user',content:input.question.trim()||(mode==='analysis'?'请分析四个方面，分别给实际行动，并提供今天吃什么的三餐方案。':mode==='memory'?'仅从这些原句提取记忆候选，无法确定就返回空列表。':'请结合当天资料回答。')}];
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
     try{
-      const response=await fetchImpl('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:bearer,'Content-Type':'application/json'},body:JSON.stringify({model:input.model,store:false,max_output_tokens:mode==='analysis'?6000:mode==='memory'?1800:2800,instructions,input:messages,text:{format:{type:'json_schema',name:'daily_'+mode,strict:true,schema:outputSchema}}}),signal:controller.signal,redirect:'error'});
-      if(!response.ok){await response.body?.cancel();return dayJson({error:response.status===401?'API Key 无效或已撤销，请到设置更新。':response.status===429?'额度不足或请求频繁，请检查 API 账户后重试。':response.status===400||response.status===404?'模型不可用或不支持结构化输出，请检查设置中的模型。':'AI 服务暂时无法完成请求，本机记录没有改变。'},response.status===401?401:response.status===429?429:502);}
+      const requestBody={model:context.model,store:false,max_output_tokens:mode==='analysis'?6000:mode==='memory'?1800:2800,instructions,input:messages,text:{format:{type:'json_schema',name:'daily_'+mode,strict:true,schema:outputSchema}}};
+      const response=await fetchImpl(providerDefinition.endpoint,{method:'POST',headers:{Authorization:bearer,'Content-Type':'application/json'},body:JSON.stringify(Providers.upstreamBody(provider,requestBody)),signal:controller.signal,redirect:'error'});
+      if(!response.ok){await response.body?.cancel();return dayJson({error:response.status===401?`${providerDefinition.label} API Key 无效或已撤销，请到设置更新。`:response.status===429?`${providerDefinition.label} 额度不足或请求频繁，请检查 API 账户后重试。`:response.status===400||response.status===404?`${providerDefinition.label} 模型不可用或不支持结构化输出，请检查设置中的模型。`:'AI 服务暂时无法完成请求，本机记录没有改变。'},response.status===401?401:response.status===429?429:502);}
       const data=await response.json(),parts=(data.output||[]).flatMap(x=>x.content||[]);if(data.status&&data.status!=='completed'||parts.some(x=>x.type==='refusal'))throw Error('Incomplete or refused');
       const parsed=JSON.parse(parts.filter(x=>x.type==='output_text').map(x=>x.text).join(''));
       let result;if(mode==='signals')result={phaseCandidates:Phases.candidates(parsed.phaseCandidates,phaseEvidence,context.today)};else if(mode==='memory')result={};else if(mode==='analysis')result={analysis:validateAnalysis(parsed,context)};
       else {if(typeof parsed.reply!=='string'||typeof parsed.uncertainty!=='string'||!validIds(parsed.articleIds,context))throw Error('Invalid reply');result={reply:parsed.reply.slice(0,800),actions:Care.actions(parsed.actions),articleIds:[...new Set(parsed.articleIds)],uncertainty:parsed.uncertainty.slice(0,200)};}
       const memoryCandidates=extracting?Memory.validateCandidates(parsed.memoryCandidates,memoryEvidence).slice(0,mode==='memory'?8:4):[];
-      return dayJson({...result,memoryCandidates,signature:context.signature,model:input.model,generatedAt:new Date().toISOString(),medicalPriority:context.medicalPriority,forecast:context.forecast});
+      return dayJson({...result,memoryCandidates,signature:context.signature,model:data.model||context.model||input.model,provider,generatedAt:new Date().toISOString(),medicalPriority:context.medicalPriority,forecast:context.forecast});
     }catch{return dayJson({error:controller.signal.aborted?'分析超时，未保存不完整结果。可以稍后重试。':'模型未给出完整且可核对的结果，本机记录保持不变。'},502);}finally{clearTimeout(timer);}
   }
   return {analyze,validateAnalysis};

@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const I=window.MoonIcons.icon,$=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const M=window.MoonMemory,C=window.MoonCore;let api,editing=null,editorToken='',busy=false,controller=null,requestId=0,requestSnapshot='',deletion=null;
+  const M=window.MoonMemory,C=window.MoonCore;let api,editing=null,editorToken='',busy=false,controller=null,requestId=0,requestSnapshot='',consentSnapshot='',deletion=null;
   function evidence(){const sources=[],today=C.todayISO(),memory=api.store.get().memory;for(const [date,e]of Object.entries(api.store.get().entries))if(date<=today&&e.note?.trim()&&!M.blockedSource(memory,date,'note',e))sources.push({id:'note:'+date,date,kind:'note',privacyBlocks:e.privacyBlocks||[],text:e.note.trim().slice(0,500),order:10000});
     for(const [date,day]of Object.entries(api.sessions.all()))if(date<=today&&!day.blockedForExtraction&&!M.blockedSource(memory,date,'chat',day))(day.messages||[]).forEach((m,index)=>{if(m.role==='user'&&m.content.trim())sources.push({id:'chat:'+date+':'+index,date,kind:'chat',privacyBlocks:day.privacyBlocks||[],text:m.content.trim().slice(0,500),order:index});});
     const seen=new Set();return sources.sort((a,b)=>b.date.localeCompare(a.date)||b.order-a.order).filter(x=>{const key=x.date+'|'+x.text;if(seen.has(key))return false;seen.add(key);return true;}).slice(0,20).map(({order,...x})=>x);
@@ -12,13 +12,14 @@
   function render(){
     if(!api)return;const m=M.normalize(api.store.get().memory),today=C.todayISO(),pending=m.items.filter(x=>x.status==='pending'),others=m.items.filter(x=>x.status!=='pending');
     if(busy)try{if(snapshot()!==requestSnapshot)stop('来源或设置已经改变，已取消旧提取，请重新核对。');}catch{stop('来源无法读取，已取消提取，请先导出原始备份。');}
+    $('#memory-ai-service').textContent=window.MoonProviders.definition(api.store.get().provider).label;
     $('#memory-enabled').checked=m.enabled;$('#memory-auto').checked=m.autoExtract;
     const active=M.active(m,today,today);$('#memory-count').textContent=`今天适用 ${active.length} 条 · 短期 ${active.filter(x=>x.scope==='short_term').length} 条 · 待复核 ${active.filter(x=>x.reviewAt&&x.reviewAt<=today).length} 条 · 候选 ${pending.length} 条${m.enabled?'':' · 使用已关闭'}`;
     const row=item=>{const isPending=item.status==='pending',expired=!!item.until&&item.until<today,due=!!item.reviewAt&&item.reviewAt<=today;return `<article class="memory-row" data-memory-id="${esc(item.id)}"><div class="memory-row-top"><strong>${item.scope==='short_term'?'短期状态':'长期背景'} · ${esc(M.categories[item.category])}</strong><span>${isPending?'候选 · 未使用':item.status==='archived'?{changed:'已发生变化',corrected:'已被更正',stopped:'已停止使用'}[item.archiveReason]||'历史存档':expired?'有效期已结束':due?'待复核 · 先确认':m.enabled?'已确认':'使用关闭'}</span></div><p>${esc(item.content)}</p><details><summary>来源、有效期与复核</summary><p class="fine muted">${esc(sourceLabel(item))}<br>适用：${esc(item.since)} — ${item.until?esc(item.until):'未设结束日'}<br>复核：${item.reviewAt?esc(item.reviewAt):'未设置'}${item.reviewedAt?' · 上次核对 '+esc(item.reviewedAt):''}</p><blockquote>${esc(item.evidence.quote)}</blockquote><p class="fine muted">${item.supersedes?'更正 / 变化后的新版本 · 来源链已保留':'首次记录 · 来源链已保留'}</p></details><div class="button-row">${item.status!=='archived'?`<button class="small-link" data-memory-edit="${esc(item.id)}">${isPending?'核对并确认':'更正 / 记录变化'}${I('arrowRight')}</button>`:''}${item.status==='confirmed'?`<button class="small-link" data-memory-review="${esc(item.id)}">已重新核对</button><button class="small-link" data-memory-stop="${esc(item.id)}">停止使用</button>`:''}<button class="small-link" data-memory-delete="${esc(item.id)}">${isPending?'不采用并清理':'删除并清理来源'}</button></div></article>`;};
     $('#memory-pending-list').innerHTML=pending.length?pending.map(row).join(''):'<p class="fine muted">暂无候选。可从记录提取，或手动添加；确认前不会跨日使用。</p>';
     $('#memory-confirmed-list').innerHTML=others.length?others.map(row).join(''):'<p class="fine muted">还没有已确认的记忆。</p>';
     $('#memory-system-preview').textContent=M.promptBlock(M.projected(m,today,today));
-    try{$('#memory-evidence-preview').textContent=JSON.stringify(evidence(),null,2);}catch(error){$('#memory-evidence-preview').textContent=error.message;}
+    try{const sources=evidence(),nextConsent=JSON.stringify({day:window.MoonDayContext.makeInput(api.store.get(),today),evidence:sources});if(nextConsent!==consentSnapshot){$('#memory-extract-consent').checked=false;consentSnapshot=nextConsent;}$('#memory-evidence-preview').textContent=JSON.stringify(sources,null,2);}catch(error){consentSnapshot='';$('#memory-extract-consent').checked=false;$('#memory-evidence-preview').textContent=error.message;}
   }
   function defaultReview(){return C.addDays(C.todayISO(),$('#memory-category').value==='medication_report'?30:180);}
   function editor(id=null){

@@ -85,9 +85,9 @@ test('manual memory requires confirmation and immediately updates open-day conte
 });
 test('normal AI response extracts pending memory without expiring its own answer; approval invalidates it',async()=>{
  const log=[],a=app({fetchImpl:async(url,options)=>{const p=JSON.parse(options.body);log.push(p);return {ok:true,json:async()=>({analysis:analysis(),signature:p.signature,model:p.model,generatedAt:today+'T04:00:00Z',memoryCandidates:[candidate({sourceId:'day-note'})]})};}});try{
-  key(a);a.$('#open-today').click();change(a,'#day-note',source().text);submit(a,'#day-record-form');a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();await tick();
+  key(a);a.$('#open-today').click();change(a,'#day-note',source().text);submit(a,'#day-record-form');a.$('#day-analysis-consent').checked=true;a.$('#day-generate').click();await tick();
   assert.equal(a.$('#day-send').disabled,false);assert.equal(log[0].memory.items.length,0);assert.equal(JSON.parse(a.raw()).memory.items[0].status,'pending');assert.match(a.$('#day-memory-status').textContent,/1 条候选/);
-  a.$('#day-dialog').close();a.$('[data-memory-edit]').click();a.$('#memory-confirm').checked=true;submit(a,'#memory-form');a.$('#open-today').click();assert.equal(a.$('#day-send').disabled,true);assert.match(a.$('#day-analysis-status').textContent,/过期/);assert.match(a.$('#day-memory-status').textContent,/1 条已确认/);
+  a.$('#day-dialog').close();a.$('[data-memory-edit]').click();a.$('#memory-confirm').checked=true;submit(a,'#memory-form');a.$('#open-today').click();assert.equal(a.$('#day-send').disabled,false);assert.match(a.$('#day-analysis-status').textContent,/过期/);assert.match(a.$('#day-memory-status').textContent,/1 条已确认/);
   a.$('#day-next').click();assert.match(a.$('#day-memory-status').textContent,/1 条已确认/);
  }finally{a.close();}
 });

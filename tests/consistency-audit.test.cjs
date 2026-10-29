@@ -57,10 +57,10 @@ test('phase drafts survive a record refresh, conflict safely, and do not leak in
 
 test('Shanghai midnight refreshes an open page and discards a request made under yesterday context',async()=>{
   let resolve,checkClock;const a=app({at:'2026-10-28T15:59:30Z',onInterval:(callback,ms)=>{assert.equal(ms,60000);checkClock=callback;},fetchImpl:async()=>new Promise(r=>{resolve=r;})});try{
-    setKey(a);a.$('#open-today').click();a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();
+    setKey(a);a.$('#open-today').click();a.$('#day-analysis-consent').checked=true;a.$('#day-generate').click();
     a.advance('2026-10-28T16:00:30Z');checkClock();assert.equal(a.$('#today-label').textContent,'2026 / 10 / 29');
     resolve({ok:true,json:async()=>({analysis:analysis(),signature:'yesterday',model:'gpt-4.1-mini',generatedAt:''})});await tick();
-    assert.equal(a.w.localStorage.getItem('yuejian.days.v1'),null);assert.equal(a.$('#day-ai-consent').checked,false);
+    assert.equal(a.w.localStorage.getItem('yuejian.days.v1'),null);assert.equal(a.$('#day-ai-consent').checked,false);assert.equal(a.$('#day-analysis-consent').checked,false);
     a.$('#open-today').click();assert.equal(a.$('#day-title').textContent,'2026 / 10 / 29');assert.equal(a.$('#day-note').disabled,false);
   }finally{a.close();}
 });

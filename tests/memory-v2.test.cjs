@@ -37,14 +37,14 @@ test('correction preserves lineage, removes old versions from every date, while 
 });
 test('correcting in the UI invalidates old analysis and a newly regenerated result stays usable',async()=>{
  const log=[],data={...fixture(),memory:memory([item()])},a=app({data,fetchImpl:mockAI(log),hash:'settings'});try{
-  key(a);a.$('#open-today').click();a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();await tick();a.$('#day-dialog').close();a.$('[data-memory-edit="m1"]').click();change(a,'#memory-content','她通常希望提前一天约好陪伴');a.$('#memory-confirm').checked=true;submit(a,'#memory-form');
-  assert.match(a.$('#memory-system-preview').textContent,/提前一天/);a.$('#open-today').click();assert.equal(a.$('#day-send').disabled,true);a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();await tick();assert.equal(a.$('#day-send').disabled,false);assert(log[1].p.memory.items.every(x=>x.content!=='她通常喜欢提前商量陪伴'));
+  key(a);a.$('#open-today').click();a.$('#day-analysis-consent').checked=true;a.$('#day-generate').click();await tick();a.$('#day-dialog').close();a.$('[data-memory-edit="m1"]').click();change(a,'#memory-content','她通常希望提前一天约好陪伴');a.$('#memory-confirm').checked=true;submit(a,'#memory-form');
+  assert.match(a.$('#memory-system-preview').textContent,/提前一天/);a.$('#open-today').click();assert.equal(a.$('#day-send').disabled,false);a.$('#day-analysis-consent').checked=true;a.$('#day-generate').click();await tick();assert.equal(a.$('#day-send').disabled,false);assert(log[1].p.memory.items.every(x=>x.content!=='她通常喜欢提前商量陪伴'));
   change(a,'#day-question','现在怎么陪伴？');assert.equal(a.$('#day-ai-consent').checked,false);a.$('#day-ai-consent').checked=true;submit(a,'#day-chat-form');await tick();assert.equal(log.length,3);assert.equal(log[2].p.history.length,0);
  }finally{a.close();}
 });
 test('stopping retains visible originals, blocks source re-extraction and late requests cannot recreate a session',async()=>{
  let resolve;const data={...fixture(),entries:{'2026-10-20':{note:item().content}},memory:memory([item()])},a=app({data,hash:'settings',fetchImpl:async(url,opt)=>new Promise(r=>resolve=()=>r({ok:true,json:async()=>({analysis:analysis(),signature:JSON.parse(opt.body).signature,model:'gpt-4.1-mini',generatedAt:today})}))});try{
-  key(a);a.$('#open-today').click();a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();a.$('#day-dialog').close();a.$('[data-memory-stop="m1"]').click();resolve();await tick();assert.equal(a.w.localStorage.getItem(Sessions.KEY),null);assert.equal(JSON.parse(a.raw()).entries['2026-10-20'].note,item().content);assert(!a.w.MoonMemoryUI.evidence().some(x=>x.date==='2026-10-20'));assert(!a.$('#memory-system-preview').textContent.includes(item().content));
+  key(a);a.$('#open-today').click();a.$('#day-analysis-consent').checked=true;a.$('#day-generate').click();a.$('#day-dialog').close();a.$('[data-memory-stop="m1"]').click();resolve();await tick();assert.equal(a.w.localStorage.getItem(Sessions.KEY),null);assert.equal(JSON.parse(a.raw()).entries['2026-10-20'].note,item().content);assert(!a.w.MoonMemoryUI.evidence().some(x=>x.date==='2026-10-20'));assert(!a.$('#memory-system-preview').textContent.includes(item().content));
  }finally{a.close();}
 });
 test('delete preview is explicit, confirmed delete clears sources and backups, importing the old file cannot resurrect them',async()=>{
@@ -55,7 +55,7 @@ test('delete preview is explicit, confirmed delete clears sources and backups, i
 });
 test('changing memory selection starts a fresh model context so excluded facts cannot leak through old analysis or chat',async()=>{
  const log=[],a=app({data:{...fixture(),memory:memory([item(),item({id:'food',category:'allergy_report',content:'她报告鸡蛋过敏'})])},fetchImpl:mockAI(log)});try{
-  key(a);a.$('#open-today').click();a.$('#day-ai-consent').checked=true;a.$('#day-generate').click();await tick();
+  key(a);a.$('#open-today').click();a.$('#day-analysis-consent').checked=true;a.$('#day-generate').click();await tick();
   change(a,'#day-question','晚餐吃什么？');a.$('#day-ai-consent').checked=true;submit(a,'#day-chat-form');await tick();assert.equal(log[1].p.analysis,undefined);assert.deepEqual(log[1].p.history,[]);assert(log[1].p.memory.items.some(x=>x.id==='food'));assert(!JSON.stringify(log[1].p).includes(item().content));
   change(a,'#day-question','改成面食可以吗？');change(a,'#day-memory-focus','food');a.$('#day-ai-consent').checked=true;submit(a,'#day-chat-form');await tick();assert.equal(log[2].p.history.length,2);
   change(a,'#day-question','今天五行的意思？');change(a,'#day-memory-focus','culture');a.$('#day-ai-consent').checked=true;submit(a,'#day-chat-form');await tick();assert.deepEqual(log[3].p.history,[]);assert.equal(log[3].p.analysis,undefined);assert(!JSON.stringify(log[3].p).includes('鸡蛋过敏'));
