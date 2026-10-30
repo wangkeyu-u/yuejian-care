@@ -1,11 +1,11 @@
 const fs=require('node:fs'),path=require('node:path'),{JSDOM}=require('jsdom');
 const KEY='yuejian.personal.v1',today='2026-10-28',root=path.resolve(__dirname,'../public');
 const fixture=()=>({version:2,periods:[{id:'p',start:'2026-10-20',end:'2026-10-24',status:'ended'}],cycleLength:28,periodLength:5,culture:true,entries:{'2026-10-25':{pain:2,note:'fixed-date-note'}}});
-function app({data=fixture(),fetchImpl=async()=>{throw Error('network disabled in test')},extra={},session={},hash='calendar',at=today+'T04:00:00Z',onInterval=null}={}){
+function app({data=fixture(),fetchImpl=async()=>{throw Error('network disabled in test')},extra={},session={},hash='calendar',at=today+'T04:00:00Z',onInterval=null,indexedDB=null}={}){
  const dom=new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'https://yuejian.test/#'+hash,runScripts:'outside-only'}),w=dom.window;
  let instant=at;const RealDate=Date;w.Date=class extends RealDate{constructor(...args){super(...(args.length?args:[instant]));}static now(){return new RealDate(instant).getTime();}};
  if(onInterval)w.setInterval=(callback,ms)=>{onInterval(callback,ms);return 0;};
- w.structuredClone=structuredClone;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.AbortController=AbortController;w.fetch=fetchImpl;w.crypto.randomUUID=()=> 'synthetic-'+Math.random().toString(36).slice(2);
+ if(indexedDB)w.indexedDB=indexedDB;w.structuredClone=structuredClone;w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.AbortController=AbortController;w.fetch=fetchImpl;w.crypto.randomUUID=()=> 'synthetic-'+Math.random().toString(36).slice(2);
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  if(data!==null)w.localStorage.setItem(KEY,typeof data==='string'?data:JSON.stringify(data));for(const [k,v]of Object.entries(extra))w.localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));for(const [k,v]of Object.entries(session))w.sessionStorage.setItem(k,v);
  for(const script of w.document.querySelectorAll('script[src]'))w.eval(fs.readFileSync(path.join(root,script.getAttribute('src').split('?')[0]),'utf8'));

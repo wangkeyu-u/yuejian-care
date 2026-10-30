@@ -1,6 +1,7 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else{root.MoonIcons=factory();root.MoonIcons.hydrate(root.document);}})(typeof globalThis!=='undefined'?globalThis:this,function(){
   'use strict';
   const paths={
+    heart:'<path d="M20.5 5.8a5 5 0 0 0-7.1 0L12 7.2l-1.4-1.4a5 5 0 0 0-7.1 7.1L12 21l8.5-8.1a5 5 0 0 0 0-7.1Z"/>',
     moon:'<path d="M20.1 14.3A8.4 8.4 0 0 1 9.7 3.9a8.5 8.5 0 1 0 10.4 10.4Z"/><circle cx="18.5" cy="5.5" r="1" fill="currentColor" stroke="none"/>',
     calendar:'<rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M7.5 3v4M16.5 3v4M3.5 10h17M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01"/>',
     book:'<path d="M12 6c-2.6-1.7-5.6-2-9-1v15c3.4-1 6.4-.7 9 1 2.6-1.7 5.6-2 9-1V5c-3.4-1-6.4-.7-9 1Zm0 0v15"/>',
