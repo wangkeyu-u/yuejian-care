@@ -24,3 +24,9 @@ test('a delayed generated poem cannot resurrect an entry after deletion or overw
 });
 test('permanent deletion barriers travel to a new browser and block older snapshots',()=>{const s=P.empty();s.entries.push(row());const old=structuredClone(s);P.remove(s,'entries','e1','原记录内容写错',P.phrase,today);P.remove(s,'entries','e1','已存入正确版本',P.phrase,today,true);const restored=P.merge(P.empty(),s),older=P.merge(restored,old);assert.equal(older.entries.length,0);assert(older.deletions.some(x=>x.id==='e1'&&x.permanent));});
 test('an imported blob cannot be written without matching live metadata after a concurrent deletion',async()=>{const a=localApp();try{const r=await ready(a);await r.update(s=>{}, {images:[{id:'orphan',blob:new Blob(['photo'],{type:'image/jpeg'})}]});assert.equal(await r.image('orphan'),undefined);}finally{a.close();}});
+test('a real-model silence detail without an original basis is removed and the edit remains visible on revalidation',()=>{
+ const original='2026年10月30日，我们又见面了，一起吃了火锅。',raw={date:today,quote:original,title:'十月末的火锅',poem:'十月的末尾，我们又一次见面\n火锅的热气升起来，像一层薄雾\n把这一天的光，轻轻围在桌边\n什么也没多说，只让锅继续滚着'},result=P.validateEvents([raw],original,[today],today)[0];assert(!result.poem.includes('没多说'));assert.equal(result.poem.split('\n').length,3);assert.match(result.notes[0],/已省略/);assert.deepEqual(P.validateEvents([result],original,[today],today)[0],result);
+});
+test('an explicitly reported quiet conversation can remain in a poem',()=>{
+ const poem='我们一言不发\n让热气慢慢升起',source='今天见面，我们一言不发地吃完了饭。';assert.equal(P.groundedPoem(poem,source).poem,poem);assert.throws(()=>P.groundedPoem('什么也没多说','我们一起吃火锅。'),/未保存/);
+});
